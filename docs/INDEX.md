@@ -12,8 +12,8 @@
 ## How to read this book
 
 Read the **spine** (01 → 05) in order — it teaches the tool from the ground up.
-Then dip into the **reference shelves** (languages, OS, harnesses) for the variant
-that matches your stack. Every page has a `← Previous | Next →` footer following
+Then dip into the **reference shelves** (languages, OS, harnesses, and the companion
+tool shelf) for the variant that matches your stack. Every page has a `← Previous | Next →` footer following
 one master reading order, so you can also just keep pressing *Next*.
 
 ```mermaid
@@ -22,10 +22,11 @@ flowchart LR
   C5 --> L[languages/*]
   L --> O[os/*]
   O --> H[harnesses/*]
+  H --> T[tools/*]
   classDef spine fill:#1e3a5f,stroke:#4a90d9,color:#fff;
   classDef shelf fill:#1f4d2e,stroke:#46b06b,color:#fff;
   class C1,C2,C3,C4,C5 spine;
-  class L,O,H shelf;
+  class L,O,H,T shelf;
   I e1@--> C1
   e1@{ animate: true }
 ```

@@ -54,9 +54,10 @@ ripgrep ships in every package manager — one command on any OS. _[sourced — 
 
 ## What it replaces — and what it complements
 
-ripgrep **is** the incumbent. It replaces GNU grep, ack, and even your harness's
-native Grep tool (which is itself ripgrep-backed) by being faster, gitignore-aware
-out of the box, and JSON-capable. _[sourced — https://github.com/BurntSushi/ripgrep]_
+ripgrep **is** the incumbent. It replaces GNU grep and ack by being faster,
+gitignore-aware out of the box, and JSON-capable. _[sourced — https://github.com/BurntSushi/ripgrep]_
+Most agent harnesses' native Grep tool is `rg` under the hood, so calling `rg`
+directly just gives you its flags (`--json`, `-tpy`) without the wrapper. _[sourced — unverified]_
 
 It does **not** replace ast-grep, and ast-grep does not replace it — they split the
 work by question type:
