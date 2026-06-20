@@ -39,6 +39,11 @@ flowchart TD
 | **OpenRewrite** | type-attributed LST (JVM) | **type-aware** Java/Kotlin refactors & migrations (resolve imports/overloads across files) | the change is purely syntactic and single-file |
 | **LSP / IDE** | type-aware, interactive | rename-symbol, type-safe extract/refactor for a human | you need scriptable, repeatable, CI-able batch edits |
 
+> **Semgrep is the structural peer worth installing.** Its taint/dataflow is the one
+> thing ast-grep cannot do — the dedicated chapter has a `[verified]` source→sink demo:
+> [tools/semgrep.md](tools/semgrep.md). Comby and GritQL are alternative structural
+> engines; the whole shelf is mapped in [tools/00-overview.md](tools/00-overview.md).
+
 ## When NOT to use ast-grep
 
 Reach for something else when you need to:

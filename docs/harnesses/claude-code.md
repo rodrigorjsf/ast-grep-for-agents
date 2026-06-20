@@ -301,6 +301,8 @@ CLI are the capability. Stack all three and Claude both *chooses* ast-grep corre
 5. Point it at your rules via `AST_GREP_CONFIG` / `--config`; verify with `claude mcp list` and `/mcp`.
 6. Hard-gate banned patterns with a **PreToolUse hook** running `ast-grep scan --error`.
 
+> The wider agent tool shelf (rg/Semgrep/Repomix/DuckDB/…) and the token-first policy that extends this one: [tools/00-overview.md](../tools/00-overview.md).
+
 ---
 
 [← Previous: Decision Policy](00-decision-policy.md) · [Next: Cursor](cursor.md)

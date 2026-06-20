@@ -39,7 +39,10 @@ Every script carries a `WHAT / WHY / WHEN / HOW` header comment; read it before 
 | Script | Use it when |
 |---|---|
 | [`check-docs.py`](scripts/check-docs.py) | after any `docs/` change — gates relative links, GitHub anchors, and `[verified]`-label honesty |
-| [`bench-tokens.sh`](scripts/bench-tokens.sh) | to (re)generate the token-efficiency fixtures and print the comparison table |
+| [`bench-tokens.sh`](scripts/bench-tokens.sh) | to (re)generate the token-efficiency fixtures and print the search + context-packing comparison tables (grep/rg/ast-grep/ctags + Repomix/files-to-prompt) |
+| [`bench-tabular.sh`](scripts/bench-tabular.sh) | to measure DuckDB/qsv "query-don't-load" savings on a generated 100k-row CSV (+ a small XLSX) |
+| [`bench-docs.sh`](scripts/bench-docs.sh) | to measure MarkItDown doc→Markdown size + table fidelity on generated docx/pptx/xlsx/pdf fixtures |
+| [`semgrep-taint-demo.sh`](scripts/semgrep-taint-demo.sh) | to (re)confirm the Semgrep taint capability (1 finding on the unsanitized path, 0 on the sanitized control) |
 
 **Standing rule — export repeatable procedures.** Whenever you hit a multi-step procedure that is
 deterministic and likely to recur (release, registry verification, a gating/render check, an

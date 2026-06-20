@@ -75,6 +75,17 @@ own token-saving purpose.
 > `@AGENTS.md` import inside `CLAUDE.md` (see [claude-code.md](claude-code.md)).
 > Per-harness native files (`CLAUDE.md`, `.cursor/rules`) are richer where you need them.
 
+## Beyond ast-grep — extending the policy to the whole tool shelf
+
+This page covers the *code-search* decision. The same logic — **pick by the shape of
+the task; a non-standard tool must beat the standard one on tokens or capability;
+never deny-list `Read`/`Grep`/`rg`** — extends to the rest of the agent bench: ripgrep,
+Semgrep, Repomix, files-to-prompt, MarkItDown, DuckDB, qsv, and universal-ctags. The
+extended token-first snippet and the per-tool chapters (with `[verified]` benchmarks)
+live on the [tools shelf](../tools/00-overview.md). Paste that snippet into the **same
+rules file** your harness uses above — the placement is identical; only the policy text
+is longer. _[sourced]_
+
 ---
 
 [← Previous: Windows](../os/windows.md) · [Next: Claude Code →](claude-code.md)

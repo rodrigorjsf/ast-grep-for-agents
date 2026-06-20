@@ -423,6 +423,7 @@ doing real work on every code task.
 - The four MCP tools, the canonical config block, and the token benchmark: [03-agentic.md](../03-agentic.md)
 - Same setup for other harnesses: [Claude Code](claude-code.md) · [Cursor](cursor.md) · [Codex](codex.md)
 - Where ast-grep stops (type info, dataflow, taint): [04-when-to-use.md](../04-when-to-use.md)
+- The wider agent tool shelf (rg/Semgrep/Repomix/DuckDB/…): [tools/00-overview.md](../tools/00-overview.md)
 
 ---
 

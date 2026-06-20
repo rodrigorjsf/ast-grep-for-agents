@@ -52,6 +52,15 @@ flowchart LR
 - [Agent Decision Policy](harnesses/00-decision-policy.md) — the canonical, copy-pasteable "when ast-grep vs another tool" rule
 - [Claude Code](harnesses/claude-code.md) · [Cursor](harnesses/cursor.md) · [Codex](harnesses/codex.md) · [Pi](harnesses/pi.md) · [Hermes](harnesses/hermes.md)
 
+### Reference shelf — tools (the rest of the agent bench)
+The small, permissive CLIs that pair with ast-grep so an agent spends fewer tokens — each chapter has install-per-OS, what-it-replaces, one integration diagram, and a `[verified]` benchmark.
+- [Tools overview](tools/00-overview.md) — taxonomy, decision matrix, recommended stack, the token-first tool policy
+- Search & structural: [ripgrep](tools/ripgrep.md) · [Semgrep OSS](tools/semgrep.md)
+- Context-packing: [Repomix](tools/repomix.md) · [files-to-prompt](tools/files-to-prompt.md)
+- Docs → Markdown: [MarkItDown](tools/markitdown.md)
+- Tabular query: [DuckDB](tools/duckdb.md) · [qsv](tools/qsv.md)
+- Persistence: [universal-ctags](tools/ctags.md)
+
 ## The POC this book documents
 
 The repo is a runnable proof-of-concept. The pages cite these real fixtures:
