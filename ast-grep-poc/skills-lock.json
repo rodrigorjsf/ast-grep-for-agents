@@ -6,12 +6,6 @@
       "sourceType": "github",
       "skillPath": "src/bmm-skills/1-analysis/research/bmad-technical-research/SKILL.md",
       "computedHash": "a3b77dae838d6a50fcbfc818a56914a93124d3b6a4217ab35401b728bdea298c"
-    },
-    "deep-research": {
-      "source": "imbad0202/academic-research-skills",
-      "sourceType": "github",
-      "skillPath": "deep-research/SKILL.md",
-      "computedHash": "44a9c4ce6d0fc120b6d83bed7c376c44571dd9be8cef7b1cfff33d0033e6ffee"
     }
   }
 }
