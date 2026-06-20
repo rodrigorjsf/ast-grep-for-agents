@@ -20,7 +20,9 @@ import os, re, sys, glob
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
-FILES = glob.glob("docs/**/*.md", recursive=True) + ["README.md", "CLAUDE.md"]
+FILES = [f for f in glob.glob("docs/**/*.md", recursive=True)
+         if "docs/handoffs/" not in f.replace("\\", "/")] + ["README.md", "CLAUDE.md"]
+# Note: docs/handoffs/ holds local, gitignored handoff meta-docs — not book content, so it is not gated.
 
 
 def github_slug(heading: str) -> str:
