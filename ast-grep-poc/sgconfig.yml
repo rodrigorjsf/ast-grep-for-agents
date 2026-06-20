@@ -1,0 +1,6 @@
+# ast-grep project config. `ast-grep scan` discovers this file by walking up
+# from the CWD. It wires rule directories and test directories into the project.
+ruleDirs:
+  - rules
+testConfigs:
+  - testDir: rule-tests

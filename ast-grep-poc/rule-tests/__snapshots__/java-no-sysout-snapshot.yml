@@ -1,0 +1,16 @@
+id: java-no-sysout
+snapshots:
+  System.out.println("a", b, c);:
+    fixed: logger.info("a", b, c);
+    labels:
+    - source: System.out.println("a", b, c)
+      style: primary
+      start: 0
+      end: 29
+  System.out.println("debug");:
+    fixed: logger.info("debug");
+    labels:
+    - source: System.out.println("debug")
+      style: primary
+      start: 0
+      end: 27

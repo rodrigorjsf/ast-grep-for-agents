@@ -1,0 +1,8 @@
+id: java-no-sysout
+language: java
+severity: warning
+message: Avoid System.out.println in production code.
+note: Use a logging framework (e.g. SLF4J logger.info) instead.
+rule:
+  pattern: System.out.println($$$ARGS)
+fix: logger.info($$$ARGS)

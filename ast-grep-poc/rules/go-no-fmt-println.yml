@@ -1,0 +1,12 @@
+id: go-no-fmt-println
+language: go
+severity: warning
+message: Remove debug fmt.Println before committing.
+note: |
+  The pattern uses `context` + `selector` because `fmt.Println($$$A)` in
+  isolation parses as a Go type-conversion (ERROR node), matching nothing.
+  Wrapping it in a statement context and selecting the call_expression fixes it.
+rule:
+  pattern:
+    context: "v := fmt.Println($$$A)"
+    selector: call_expression
