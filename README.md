@@ -59,6 +59,7 @@ saving scales with file size. Details + the `--json` tradeoff →
 **Languages:** [Java](docs/languages/java.md) · [Python](docs/languages/python.md) · [Go](docs/languages/go.md)
 **OS:** [Linux](docs/os/linux.md) · [WSL](docs/os/wsl.md) · [macOS](docs/os/macos.md) · [Windows](docs/os/windows.md)
 **Harnesses:** [Decision Policy](docs/harnesses/00-decision-policy.md) · [Claude Code](docs/harnesses/claude-code.md) · [Cursor](docs/harnesses/cursor.md) · [Codex](docs/harnesses/codex.md) · [Pi](docs/harnesses/pi.md) · [Hermes](docs/harnesses/hermes.md)
+**Tools shelf** (the rest of the agent bench, each with a `[verified]` benchmark): [Overview](docs/tools/00-overview.md) · [ripgrep](docs/tools/ripgrep.md) · [Semgrep](docs/tools/semgrep.md) · [Repomix](docs/tools/repomix.md) · [files-to-prompt](docs/tools/files-to-prompt.md) · [MarkItDown](docs/tools/markitdown.md) · [DuckDB](docs/tools/duckdb.md) · [qsv](docs/tools/qsv.md) · [universal-ctags](docs/tools/ctags.md)
 
 ## Runnable POC
 
