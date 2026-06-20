@@ -30,6 +30,24 @@ The learning material is a progressive technical book under `docs/`. These conve
 
 **Harness config blocks are fetched-and-quoted, not recalled.** Config file paths and MCP-mount syntax churn fast and are easy to hallucinate — quote the official doc with its URL and a date stamp; if it can't be found, the block is `[sourced — unverified]`.
 
+## Automation scripts (`scripts/`)
+
+Deterministic, repeatable agent-ops procedures live in [`scripts/`](./scripts/). **Prefer the
+script over re-deriving the steps** — each one encodes hard-won traps so they are not re-suffered.
+Every script carries a `WHAT / WHY / WHEN / HOW` header comment; read it before first use.
+
+| Script | Use it when |
+|---|---|
+| [`check-docs.py`](scripts/check-docs.py) | after any `docs/` change — gates relative links, GitHub anchors, and `[verified]`-label honesty |
+| [`bench-tokens.sh`](scripts/bench-tokens.sh) | to (re)generate the token-efficiency fixtures and print the comparison table |
+
+**Standing rule — export repeatable procedures.** Whenever you hit a multi-step procedure that is
+deterministic and likely to recur (release, registry verification, a gating/render check, an
+environment workaround), **capture it as a `scripts/` script** with a `WHAT / WHY / WHEN / HOW`
+header comment instead of re-deriving it inline, and add a row to the table above. If the script is
+also useful to a human maintainer, the header comment is its documentation. This saves tokens and
+makes the procedure auditable and reproducible.
+
 ## Applied Learning
 
 When something fails repeatedly, when User has to re-explain, or when a workaround is found for a platform/tool limitation, add a one-line bullet here. Keep each bullet under 15 words. No explanations. Only add things that will save time in future sessions.

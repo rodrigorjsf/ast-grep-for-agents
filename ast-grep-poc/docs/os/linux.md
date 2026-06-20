@@ -155,9 +155,9 @@ language**, you register a pre-compiled Tree-sitter grammar as a dynamic library
 
 | Platform | Grammar library extension |
 | --- | --- |
-| **Linux / WSL** | `.so` [verified] |
-| macOS | `.dylib` [verified] |
-| Windows | `.dll` [verified] |
+| **Linux / WSL** | `.so` [sourced] |
+| macOS | `.dylib` [sourced — not reproduced] |
+| Windows | `.dll` [sourced — not reproduced] |
 
 On Linux you wire it up under `customLanguages` in your `sgconfig.yml`, pointing
 `libraryPath` at the `.so`:
@@ -302,7 +302,7 @@ regardless of which directory a tool call happens to run from. See
 | Install (any one route) | `nix-shell -p ast-grep` · `mise use -g ast-grep` · `cargo install ast-grep --locked` · `npm i @ast-grep/cli -g` · `pip install ast-grep-cli` | [sourced] |
 | Confirm install | `ast-grep --version` → `ast-grep 0.42.3` | [verified env] |
 | Run a search | always `ast-grep …`, **never** bare `sg` (= setgroups) | [verified] |
-| Custom grammar | `libraryPath: ….so` in `sgconfig.yml` | [verified — `.so`] |
+| Custom grammar | `libraryPath: ….so` in `sgconfig.yml` | [sourced — `.so`] |
 | Write a pattern | wrap in **single quotes**: `-p '…$VAR…'` | [sourced — shell] |
 | Completions | `ast-grep completions <bash\|elvish\|fish\|powershell\|zsh>` | [sourced] |
 | Point at rules | `export AST_GREP_CONFIG=/path/sgconfig.yml` (or `--config`) | [sourced] |

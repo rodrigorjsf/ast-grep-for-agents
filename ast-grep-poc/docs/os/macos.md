@@ -90,7 +90,7 @@ is **`.dylib`** (where Linux uses `.so` and Windows uses `.dll`):
 
 | Platform | Grammar library extension |
 | --- | --- |
-| Linux / WSL | `.so` [verified] |
+| Linux / WSL | `.so` [sourced] |
 | **macOS** | **`.dylib`** [sourced — not reproduced on macOS] |
 | Windows | `.dll` [sourced — not reproduced on macOS / Windows] |
 

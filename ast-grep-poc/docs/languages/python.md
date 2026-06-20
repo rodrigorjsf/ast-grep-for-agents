@@ -396,8 +396,7 @@ rewrite — and for the five smells in our fixture, that's exactly the right too
   the OpenRewrite type-aware tradeoff.
 - **[Go](go.md)** — the third failure mode (a pattern that parses to the *wrong*
   node) and the `context`/`selector` cure.
-- **[README §9](../../README.md#9-per-language-deep-dives-java-python-go)** — the
-  per-language deep-dive summary.
+- **[INDEX](../INDEX.md)** — the book's table of contents and language shelf.
 
 ---
 [← Previous: Java](java.md) · [Next: Go](go.md)
