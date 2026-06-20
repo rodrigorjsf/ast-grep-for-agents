@@ -1,0 +1,5 @@
+# This repo runs on Linux/WSL. Force LF in the working tree on every platform so
+# shell scripts never get CRLF (a `\r` breaks `set -o pipefail` and shebangs).
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf

@@ -56,3 +56,4 @@ When something fails repeatedly, when User has to re-explain, or when a workarou
 - ast-grep: invoke as `ast-grep`, never `sg` (collides with Linux setgroups).
 - ast-grep Go: bare call patterns mis-parse; use `context`+`selector`.
 - ast-grep no-match exits 1 (not 0); empty result ≠ error. Use `--debug-query`.
+- WSL clones get CRLF; `.gitattributes` `eol=lf` or shell scripts break (`set -o pipefail\r`).
