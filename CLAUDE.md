@@ -52,6 +52,20 @@ header comment instead of re-deriving it inline, and add a row to the table abov
 also useful to a human maintainer, the header comment is its documentation. This saves tokens and
 makes the procedure auditable and reproducible.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live as GitHub issues in `rodrigorjsf/ast-grep-for-agents` (use the `gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles use their default label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
 ## Applied Learning
 
 When something fails repeatedly, when User has to re-explain, or when a workaround is found for a platform/tool limitation, add a one-line bullet here. Keep each bullet under 15 words. No explanations. Only add things that will save time in future sessions.
