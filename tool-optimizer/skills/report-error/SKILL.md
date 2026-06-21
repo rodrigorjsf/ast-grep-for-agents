@@ -86,6 +86,35 @@ TO_REPORT_OUT="${TMPDIR:-/tmp}/tool-optimizer-report.json" \
 Inspect the struct if you like — it is plain JSON. It is the **entire** payload the next step
 sends; nothing outside it travels upstream.
 
+## Step 2a — gh-availability gate: file or pend (main thread)
+
+Before spawning the filing subagent, run the gh-availability gate. If `gh` is missing **or**
+unauthenticated, append the already-sanitized struct to the local pending-reports file and
+**stop** — do not spawn the subagent. This is the lossless fallback for machines without a
+usable GitHub CLI.
+
+```sh
+S="${CLAUDE_PLUGIN_ROOT}/skills/report-error/scripts/file-or-pend.sh"
+TOKEN=$(
+  TO_FOP_STRUCT="$(cat "${TMPDIR:-/tmp}/tool-optimizer-report.json")" \
+    sh "$S"
+)
+```
+
+`$TOKEN` is either `"gh-available"` or `"pended"` (the script always exits 0 — lossless).
+
+- **`pended`** — `gh` is missing or unauthenticated. The sanitized struct has been appended
+  (compact JSONL, one struct per line) to `.claude/tool-optimizer.pending-reports.jsonl`
+  (relative to the repo root where the skill runs). **Stop here.** Do not proceed to Step 3.
+  The pending file is gitignored; a human or a future gh-available session files the reports
+  manually. **No auto-flush is implemented — this skill never reads the pending file back.**
+- **`gh-available`** — `gh` is present and authenticated. Proceed to Step 3 as normal.
+
+The pending path is overridable via `TO_FOP_PEND` (see `file-or-pend.sh`). The seam
+`file-or-pend.seam.sh` proves AC1–AC3: the appended struct is sanitized (no denylist
+strings), the pending path and the filing path are mutually exclusive, and the fallback
+always exits 0.
+
 ## Step 3 — Spawn a BACKGROUND dedup+filing subagent with ONLY the struct
 
 Spawn a background subagent and pass it **only the contents of the struct file** from Step 2 —
@@ -211,7 +240,10 @@ same failure in the same run.
 
 ## What this skill deliberately does NOT do
 
-- It does **not** install a breadcrumb, a hook on-failure trap, or any local pending-report
-  fallback for when `gh` is absent or unauthenticated.
-
-That is a separate concern; keep this skill to the sanitize → dedup → file/comment spine.
+- It does **not** auto-flush the pending-reports file. Reports that accumulate in
+  `.claude/tool-optimizer.pending-reports.jsonl` stay there until a human or a future
+  gh-available session files them manually. Reading the pending file back, batching its
+  entries, or triggering any network call to drain it is **explicitly out of scope**
+  for this skill.
+- It does **not** install a hook on-failure breadcrumb or EXIT trap — that is the
+  `#26` breadcrumb mechanism, which is a separate, already-merged concern.
