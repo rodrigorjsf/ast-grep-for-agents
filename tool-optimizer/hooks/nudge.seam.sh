@@ -20,8 +20,10 @@ tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
 
 SEEN="$tmpdir/seen.txt"
+BREADCRUMB="$tmpdir/nudge.breadcrumb"
 export TO_NUDGE_SEEN="$SEEN"
 export TO_NUDGE="soft"
+export TO_BREADCRUMB="$BREADCRUMB"
 
 # Make a large temp file (> 100 KB) for the size trigger test
 large_file="$tmpdir/bigfile.dat"
@@ -173,6 +175,65 @@ out=$(run_nudge "Read" "/slides/deck.pptx")
 assert_allow "$out" "pptx-trigger"
 assert_has_msg "$out" "pptx-trigger" "markitdown"
 echo "  [ok] pptx trigger"
+
+# ============================================================================
+# Case 11 (AC1): force a crash → exactly one breadcrumb line with no path
+# Crash mechanism: point TO_NUDGE_SEEN at a path under an existing file so
+# mkdir -p / append to the seen-file fails when jq runs, but first we force a
+# predictable crash by pointing TO_NUDGE_SEEN at a non-writable sub-path of a
+# regular file. Under set -e, the mkdir failure propagates as a non-zero exit.
+# ============================================================================
+crumb="$tmpdir/ac1.breadcrumb"
+rm -f "$crumb"
+# Create a regular file and try to use a path under it as the seen-file dir.
+blocker="$tmpdir/blocker_file"
+touch "$blocker"
+bad_seen="$blocker/subpath/seen.txt"
+out_crash=$(TO_NUDGE_SEEN="$bad_seen" TO_BREADCRUMB="$crumb" \
+  sh "$NUDGE_SH" <<'EOFJSON' 2>/dev/null
+{"tool_name":"Read","tool_input":{"file_path":"/data/crash.csv"}}
+EOFJSON
+) || true
+
+# Assert exactly one line was written
+if [ ! -f "$crumb" ]; then
+  echo "FAIL [ac1-crash]: breadcrumb file was not created"
+  fail=1
+else
+  line_count=$(wc -l < "$crumb" | tr -d ' ')
+  if [ "$line_count" -ne 1 ]; then
+    echo "FAIL [ac1-crash]: expected exactly 1 breadcrumb line, got $line_count"
+    fail=1
+  fi
+
+  bc_line=$(cat "$crumb")
+  # Assert the line matches artifact-identity#exit-code pattern
+  if ! printf '%s' "$bc_line" | grep -qE '^hooks/nudge\.sh#[0-9]+$'; then
+    echo "FAIL [ac1-crash]: breadcrumb line does not match 'hooks/nudge.sh#N' pattern: '$bc_line'"
+    fail=1
+  fi
+
+  # Assert no path/content leak (no '/' or worktree prefix present)
+  if printf '%s' "$bc_line" | grep -q '/home\|/tmp\|/var\|Users'; then
+    echo "FAIL [ac1-crash]: breadcrumb line contains a filesystem path: '$bc_line'"
+    fail=1
+  fi
+fi
+echo "  [ok] ac1 crash: exactly one breadcrumb line with no path"
+
+# ============================================================================
+# Case 12 (AC1 inverse): normal happy-path exit writes NO breadcrumb
+# ============================================================================
+clean_crumb="$tmpdir/clean.breadcrumb"
+rm -f "$clean_crumb"
+reset_seen
+out_clean=$(TO_BREADCRUMB="$clean_crumb" run_nudge "Read" "/src/notes.txt") || true
+assert_allow "$out_clean" "happy-no-breadcrumb"
+if [ -f "$clean_crumb" ] && [ -s "$clean_crumb" ]; then
+  echo "FAIL [happy-no-breadcrumb]: breadcrumb was written on a clean exit"
+  fail=1
+fi
+echo "  [ok] happy-path: no breadcrumb on clean exit"
 
 # ============================================================================
 # Summary
