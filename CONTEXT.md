@@ -32,6 +32,15 @@ confirmation. If an install cannot complete, the plugin reports it and continues
 the bootstrap. There is no silent or automatic install.
 _Avoid_: Auto-install, unattended install.
 
+**Channel**:
+The specific command used to install one Missing tool, chosen from `(tool, installed
+managers, OS)` by `pick_channel.sh`. A **non-privileged** channel (`brew`/`npm`/`pipx`/
+`uv`/`cargo`/`scoop`/`winget`) is emitted as `RUN` — the bootstrap may execute it on
+consent. Anything privileged or remote-script (`sudo apt`, `curl … | sh`, a from-source
+build) — and the case where no eligible manager is installed — is emitted as `MANUAL`:
+advice the user runs themselves, never auto-run.
+_Avoid_: Installer, method (say which: RUN channel vs MANUAL fallback).
+
 **Policy**:
 The token-first guidance the agent reads — "pick the tool by the shape of the
 task; a non-standard tool must beat the standard one on tokens or capability;
@@ -53,6 +62,14 @@ it is tunable and disablable via the `nudge:` setting. A nudge guides; it is not
 deny.
 _Avoid_: Block, gate, intercept, veto.
 
+**Census**:
+The cheap, deterministic snapshot of the project that Relevance is computed from:
+bucketed, sorted counts derived from the tracked-file *list* alone (`git ls-files`) —
+source by language, tabular files, binary docs, notebooks, build files, repo size, and
+monorepo markers. No full-tree walk and no file contents are read. An empty census (no
+tracked files) is the *global* (no-codebase) case.
+_Avoid_: Scan, crawl, index (those imply reading contents or walking the tree).
+
 **Relevance** (codebase fit):
 How useful a Tool is *for the codebase being bootstrapped*, derived from a cheap,
 deterministic census of the project (file-type counts, languages, repo size) mapped
@@ -62,6 +79,15 @@ ast-grep high". Relevance *ranks and informs*; it never hides a Tool or gates
 detection. A global Bootstrap has no codebase, so its relevance is generic and
 labelled as such.
 _Avoid_: Score, priority, fitness.
+
+**GEN-core** / **GEN-conditional**:
+The two halves of a *global* (no-codebase) Relevance verdict. *GEN-core* tools are
+broadly useful in any project (ripgrep, ast-grep, Repomix, files-to-prompt,
+universal-ctags, rtk) and are recommended even without a codebase. *GEN-conditional*
+tools are gated on a need that can't be seen globally (Semgrep, DuckDB, qsv,
+MarkItDown) and are shown but not pushed. The split stops the global advice from
+recommending a tool whose own evidence says "only if you handle X".
+_Avoid_: Generic (ambiguous — say which half).
 
 **Fixed config**:
 A deterministic, user-agreed value consolidated during the bootstrap grilling
