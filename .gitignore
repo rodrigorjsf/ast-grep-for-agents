@@ -11,3 +11,4 @@ examples/bench/sample.*
 # tool-optimizer user-local config (never committed)
 .claude/*.local.json
 .claude/*.local.md
+.orchestrate/
