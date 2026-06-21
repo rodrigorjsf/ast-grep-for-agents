@@ -77,3 +77,5 @@ When something fails repeatedly, when User has to re-explain, or when a workarou
 - WSL clones get CRLF; `.gitattributes` `eol=lf` or shell scripts break (`set -o pipefail\r`).
 - Project `.venv` is uv-managed (no pip); use `uv pip install --python .venv/bin/python <pkg>`.
 - `curl|sh` installers are sandbox-blocked; install via `brew` (no sudo) instead.
+- Claude Code plugins have no native `rules/` component; inject standing policy via SessionStart hook.
+- PreToolUse hook: `permissionDecision: allow` + `systemMessage` = non-blocking advisory to Claude.
