@@ -124,6 +124,26 @@ command -v <binary> >/dev/null 2>&1 && echo "Available" || echo "still Missing �
 After the loop, you may re-run Step 1 once to refresh the persisted inventory with the
 newly-installed tools.
 
+## Step 6 — (opt-in) Mount the ast-grep MCP server
+
+The `mcp` setting (off by default) gates the `ast-grep` MCP server. The lightweight default
+is the ast-grep CLI on `PATH` plus the policy line — no MCP process. Mounting is a
+**consented** write: it adds a project-scope `.mcp.json` at the repo root, a committable
+file, so take explicit confirmation before writing — the same HITL rule as an install.
+
+```sh
+sh "$D/mount_mcp.sh"   # reads the resolved `mcp` setting; on => write the entry, off => remove it
+```
+
+- `mcp: on` → ensures `mcpServers["ast-grep"]` in `.mcp.json`, preserving any other servers.
+  Present the exact entry and confirm before running.
+- `mcp: off` (default) → removes only the `ast-grep` entry and deletes `.mcp.json` if nothing
+  else is left. Nothing is mounted.
+
+Writing `.mcp.json` does **not** start the server: Claude Code prompts for approval the first
+time it sees a project-scoped server (or pre-approve via `enableAllProjectMcpServers` /
+`enabledMcpjsonServers`), and reads the file at session start — restart after it changes.
+
 ## Acceptance recap (issue #7)
 
 - Missing tools presented ranked, each with a sourced "where used" line — Steps 3–4.

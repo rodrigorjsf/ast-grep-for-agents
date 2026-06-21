@@ -1,7 +1,7 @@
 {
   "name": "tool-optimizer",
-  "version": "0.1.0",
-  "description": "Injects the token-first local tool policy into every session via SessionStart.",
+  "version": "0.2.0",
+  "description": "Makes the agent reach for the cheapest tool that fits: token-first policy via SessionStart, a PreToolUse nudge, a consented tool-shelf bootstrap, and an opt-in ast-grep MCP mount.",
   "author": {
     "name": "Rodrigo França",
     "email": "rodrigo_rjsf@hotmail.com"
