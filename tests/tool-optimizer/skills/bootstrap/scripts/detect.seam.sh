@@ -13,7 +13,8 @@
 
 set -e
 
-SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(printf '%s' "$SCRIPT_DIR" | sed 's#/tests/tool-optimizer/#/tool-optimizer/#')"
 DETECT="$SCRIPT_DIR/detect.sh"
 
 # Capture absolute path of sh and jq BEFORE we alter PATH.

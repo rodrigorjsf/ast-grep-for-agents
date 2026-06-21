@@ -13,7 +13,8 @@
 
 set -e
 
-SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(printf '%s' "$SCRIPT_DIR" | sed 's#/tests/tool-optimizer/#/tool-optimizer/#')"
 TMP=$(mktemp -d)
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; rm -rf "$TMP"; exit 1; }

@@ -15,11 +15,16 @@
 
 set -e
 
-here=$(dirname "$0")
+here="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+here="$(printf '%s' "$here" | sed 's#/tests/tool-optimizer/#/tool-optimizer/#')"
 HOOK_SH="$here/session-start-policy.sh"
 
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
+
+# Point breadcrumb at a temp path so seams never touch .claude/
+BREADCRUMB="$tmpdir/policy.breadcrumb"
+export TO_BREADCRUMB="$BREADCRUMB"
 
 fail=0
 
@@ -40,7 +45,13 @@ printf '%s' "$out" | jq -er '.hookSpecificOutput.additionalContext | contains("L
 printf '%s' "$out" | jq -er '.hookSpecificOutput.additionalContext | contains("novelty is never the reason")' >/dev/null \
   || { echo "FAIL [fallback]: policy tail missing from additionalContext"; fail=1; }
 
-echo "  [ok] fallback path: absent .local.md emits static Policy"
+# Self-report trigger clause must be present on the FALLBACK path.
+printf '%s' "$out" | jq -er '.hookSpecificOutput.additionalContext | contains("report-error")' >/dev/null \
+  || { echo "FAIL [fallback]: self-report trigger clause missing from static Policy"; fail=1; }
+printf '%s' "$out" | jq -er '.hookSpecificOutput.additionalContext | contains("rodrigorjsf/ast-grep-for-agents")' >/dev/null \
+  || { echo "FAIL [fallback]: upstream tracker missing from self-report clause"; fail=1; }
+
+echo "  [ok] fallback path: absent .local.md emits static Policy (with self-report clause)"
 
 # ============================================================================
 # Case 2: hot path — .local.md with synthetic block → block content emitted
@@ -107,6 +118,72 @@ if printf '%s' "$out3" | jq -r '.hookSpecificOutput.additionalContext' | grep -q
 fi
 
 echo "  [ok] frontmatter stripped from .local.md content"
+
+# ============================================================================
+# Case 4 (AC1): force a crash → exactly one breadcrumb line with no path
+# Crash mechanism: TO_FORCE_CRASH=1 triggers a deliberate `false` inside the
+# hook under set -e, producing a non-zero exit that the trap catches.
+# ============================================================================
+crumb4="$tmpdir/ac1.breadcrumb"
+rm -f "$crumb4"
+out4=$(TO_FORCE_CRASH=1 TO_BREADCRUMB="$crumb4" sh "$HOOK_SH" 2>/dev/null) || true
+
+if [ ! -f "$crumb4" ]; then
+  echo "FAIL [ac1-crash]: breadcrumb file was not created after forced crash"
+  fail=1
+else
+  line_count4=$(wc -l < "$crumb4" | tr -d ' ')
+  if [ "$line_count4" -ne 1 ]; then
+    echo "FAIL [ac1-crash]: expected exactly 1 breadcrumb line, got $line_count4"
+    fail=1
+  fi
+
+  bc4_line=$(cat "$crumb4")
+  if ! printf '%s' "$bc4_line" | grep -qE '^hooks/session-start-policy\.sh#[0-9]+$'; then
+    echo "FAIL [ac1-crash]: breadcrumb line does not match expected pattern: '$bc4_line'"
+    fail=1
+  fi
+
+  # Assert no path/content leak
+  if printf '%s' "$bc4_line" | grep -q '/home\|/tmp\|/var\|Users'; then
+    echo "FAIL [ac1-crash]: breadcrumb line contains a filesystem path: '$bc4_line'"
+    fail=1
+  fi
+fi
+echo "  [ok] ac1 crash: exactly one breadcrumb line with no path"
+
+# ============================================================================
+# Case 5 (AC2): pre-seeded non-empty breadcrumb → pointer appears in context
+# ============================================================================
+seeded_crumb="$tmpdir/seeded.breadcrumb"
+printf 'hooks/nudge.sh#1\n' > "$seeded_crumb"
+
+out5=$(TO_LOCAL_MD="$tmpdir/nonexistent-ac2.md" TO_BREADCRUMB="$seeded_crumb" sh "$HOOK_SH") \
+  || { echo "FAIL [ac2-seeded]: script exited non-zero"; fail=1; }
+
+printf '%s' "$out5" | jq empty 2>/dev/null \
+  || { echo "FAIL [ac2-seeded]: stdout is not valid JSON"; fail=1; }
+
+printf '%s' "$out5" | jq -er '.hookSpecificOutput.additionalContext | contains("report-error")' >/dev/null \
+  || { echo "FAIL [ac2-seeded]: pending-defect pointer referencing report-error skill not found"; fail=1; }
+
+printf '%s' "$out5" | jq -er '.hookSpecificOutput.additionalContext | contains("pending hook defect")' >/dev/null \
+  || { echo "FAIL [ac2-seeded]: pending-defect phrase not found in context"; fail=1; }
+
+echo "  [ok] ac2 pre-seeded breadcrumb: pending-defect pointer injected in context"
+
+# ============================================================================
+# Case 6 (AC2 inverse): absent breadcrumb → NO pointer in context
+# ============================================================================
+rm -f "$BREADCRUMB"
+out6=$(TO_LOCAL_MD="$tmpdir/nonexistent-ac2b.md" TO_BREADCRUMB="$tmpdir/absent.breadcrumb" sh "$HOOK_SH") \
+  || { echo "FAIL [ac2-absent]: script exited non-zero"; fail=1; }
+
+if printf '%s' "$out6" | jq -er '.hookSpecificOutput.additionalContext | contains("pending hook defect")' >/dev/null 2>&1; then
+  echo "FAIL [ac2-absent]: pending-defect pointer present even with no breadcrumb file"
+  fail=1
+fi
+echo "  [ok] ac2 absent breadcrumb: no pointer injected (clean path)"
 
 # ============================================================================
 # Summary
