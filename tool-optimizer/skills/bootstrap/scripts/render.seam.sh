@@ -138,6 +138,30 @@ diff "$OUT_DET1" "$OUT_DET2" \
 echo "  [ok] determinism: two runs with same TO_NOW are byte-identical"
 
 # ============================================================================
+# Case 5: PRESERVE FRONTMATTER — a pre-existing .local.md with YAML frontmatter (user
+#   settings) must keep that frontmatter; only the body block is regenerated.
+# ============================================================================
+OUT_FM="$tmpdir/with-frontmatter.md"
+printf '%s\n' '---' 'enabled: true' 'mcp: on' '---' '## old stale body to be replaced' > "$OUT_FM"
+
+TO_INVENTORY="$INVENTORY" TO_NOW="2026-01-06T00:00:00Z" TO_RENDER_OUT="$OUT_FM" \
+  "$SH_BIN" "$RENDER_SH" || { echo "FAIL [frontmatter]: render.sh exited non-zero"; fail=1; }
+
+# Frontmatter settings survive.
+grep -q '^mcp: on$' "$OUT_FM" \
+  || { echo "FAIL [frontmatter]: 'mcp: on' setting was churned by re-render"; fail=1; }
+grep -q '^enabled: true$' "$OUT_FM" \
+  || { echo "FAIL [frontmatter]: 'enabled: true' setting was churned by re-render"; fail=1; }
+# Body is regenerated (policy present) and the stale body is gone.
+grep -q "Local tool policy (token-first)" "$OUT_FM" \
+  || { echo "FAIL [frontmatter]: body block not regenerated"; fail=1; }
+if grep -q "old stale body to be replaced" "$OUT_FM"; then
+  echo "FAIL [frontmatter]: stale body survived instead of being regenerated"; fail=1
+fi
+
+echo "  [ok] frontmatter case: settings preserved, body regenerated"
+
+# ============================================================================
 # Summary
 # ============================================================================
 if [ "$fail" -eq 0 ]; then

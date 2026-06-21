@@ -129,13 +129,15 @@ newly-installed tools.
 
 ## Step 6 — (opt-in) Mount the ast-grep MCP server
 
-The `mcp` setting (off by default) gates the `ast-grep` MCP server. The lightweight default
-is the ast-grep CLI on `PATH` plus the policy line — no MCP process. Mounting is a
-**consented** write: it adds a project-scope `.mcp.json` at the repo root, a committable
-file, so take explicit confirmation before writing — the same HITL rule as an install.
+The `mcp` setting (off by default) gates the `ast-grep` MCP server. It lives in the
+`.claude/tool-optimizer.local.md` frontmatter (project, falling back to global) — not the
+inventory JSON, so re-detect never churns it. The lightweight default is the ast-grep CLI on
+`PATH` plus the policy line — no MCP process. Mounting is a **consented** write: it adds a
+project-scope `.mcp.json` at the repo root, a committable file, so take explicit confirmation
+before writing — the same HITL rule as an install.
 
 ```sh
-sh "$D/mount_mcp.sh"   # reads the resolved `mcp` setting; on => write the entry, off => remove it
+sh "$D/mount_mcp.sh"   # reads `mcp` from .local.md frontmatter; on => write the entry, off => remove it
 ```
 
 - `mcp: on` → ensures `mcpServers["ast-grep"]` in `.mcp.json`, preserving any other servers.

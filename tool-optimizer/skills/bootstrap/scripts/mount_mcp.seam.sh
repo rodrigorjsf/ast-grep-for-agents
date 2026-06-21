@@ -101,19 +101,40 @@ TO_MCP_SETTING=off PROJECT_MCP="$MCP" "$SH_BIN" "$MOUNT_SH" || fail "case8 off/b
 echo "  [ok] off over blank file: deleted (no litter)"
 
 # ============================================================================
-# Case 9: a malformed resolved config must ABORT, never silently unmount
+# Case 9: the REAL user switch — `mcp: on` in the .local.md settings frontmatter, with
+#         TO_MCP_SETTING UNSET, mounts the server (drives the config-file path, not the
+#         injected override).
 # ============================================================================
-badcfg="$tmpdir/bad-config.json"; printf '{ this is not json' > "$badcfg"
-cat > "$MCP" <<'ENDJSON'
-{ "mcpServers": { "ast-grep": { "command": "uvx", "args": [], "env": {} }, "other": { "command": "x", "args": [] } } }
-ENDJSON
-if env -u TO_MCP_SETTING GLOBAL_CONFIG="$tmpdir/no-global.json" PROJECT_CONFIG="$badcfg" PROJECT_MCP="$MCP" \
-     "$SH_BIN" "$MOUNT_SH" 2>/dev/null; then
-  fail "case9: malformed config should abort non-zero, not 'succeed' as off"
-fi
+rm -f "$MCP"
+proj_md="$tmpdir/project.local.md"
+printf '%s\n' '---' 'enabled: true' 'mcp: on' '---' '## body block (rendered)' > "$proj_md"
+env -u TO_MCP_SETTING PROJECT_SETTINGS="$proj_md" GLOBAL_SETTINGS="$tmpdir/none.md" PROJECT_MCP="$MCP" \
+  "$SH_BIN" "$MOUNT_SH" || fail "case9: frontmatter mcp:on exited non-zero"
+jq -e '.mcpServers["ast-grep"].command == "uvx"' "$MCP" >/dev/null \
+  || fail "case9: 'mcp: on' in .local.md frontmatter must mount the server"
+echo "  [ok] switch on: 'mcp: on' in .local.md frontmatter mounts (no injected setting)"
+
+# ============================================================================
+# Case 10: `mcp: off` (and absent) in frontmatter unmounts / mounts nothing.
+# ============================================================================
+printf '%s\n' '---' 'mcp: off' '---' '## body' > "$proj_md"
+env -u TO_MCP_SETTING PROJECT_SETTINGS="$proj_md" GLOBAL_SETTINGS="$tmpdir/none.md" PROJECT_MCP="$MCP" \
+  "$SH_BIN" "$MOUNT_SH" || fail "case10: frontmatter mcp:off exited non-zero"
+[ ! -f "$MCP" ] || fail "case10: 'mcp: off' must remove our entry (file gone, only ours)"
+echo "  [ok] switch off: 'mcp: off' in frontmatter unmounts"
+
+# ============================================================================
+# Case 11: project frontmatter wins over global (project mcp:on beats global mcp:off).
+# ============================================================================
+rm -f "$MCP"
+glob_md="$tmpdir/global.local.md"
+printf '%s\n' '---' 'mcp: off' '---' > "$glob_md"
+printf '%s\n' '---' 'mcp: on' '---' > "$proj_md"
+env -u TO_MCP_SETTING PROJECT_SETTINGS="$proj_md" GLOBAL_SETTINGS="$glob_md" PROJECT_MCP="$MCP" \
+  "$SH_BIN" "$MOUNT_SH" || fail "case11 exited non-zero"
 jq -e '.mcpServers["ast-grep"]' "$MCP" >/dev/null \
-  || fail "case9: ast-grep entry must survive when config resolution fails"
-echo "  [ok] malformed config: aborts without silently unmounting"
+  || fail "case11: project 'mcp: on' must win over global 'mcp: off'"
+echo "  [ok] resolution: project frontmatter wins over global"
 
 echo "mount_mcp seam ok"
 exit 0
