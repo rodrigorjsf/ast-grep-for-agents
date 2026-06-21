@@ -1,11 +1,11 @@
 ---
 name: bootstrap
 description: >-
-  Bootstrap the local agent tool shelf — detect which of the 10 core tools are
-  installed, rank each by relevance to THIS codebase, then present every missing
-  tool (ranked) with where the agent would use it and offer a consented,
-  non-privileged install. Use when the user wants to set up / bootstrap / install
-  the tool-optimizer tools, "install missing tools", or "check my tool shelf".
+  Bootstrap the local agent tool shelf: detect the 10 core tools, rank each by
+  relevance to this codebase, then offer a consented, non-privileged install of the
+  missing ones — and optionally mount the ast-grep MCP server. Use when the user wants
+  to set up or bootstrap the tool-optimizer tools, install missing tools, or check
+  their tool shelf.
 ---
 
 # Bootstrap the tool shelf (present → consent → install)
@@ -17,9 +17,9 @@ then re-probe. A failed or impossible install degrades to advice and the bootstr
 continues. `sudo` and `curl … | sh` are **never** run automatically; they are shown as
 text for the user to run themselves.
 
-This flow is **HITL**: the install mutates the machine and consent must be driven by a
-human. Only `pick_channel.sh` is harness-verified (`pick_channel.seam.sh`); the
-present / consent / install / re-probe loop below is not harness-verifiable.
+This flow is **HITL**: the install and the MCP mount both mutate state, so consent must be
+driven by a human. `pick_channel.sh` and `mount_mcp.sh` are harness-verified (their seams);
+the present / consent / install / re-probe loop below is not.
 
 ## Step 1 — Build the ranked inventory
 
@@ -55,6 +55,9 @@ Missing set, in two tiers:
 2. **Show, don't push:** the remaining `relevance[]` entries with `available == false`
    (LOW / NA / GEN-conditional). List them so the user can still opt in, but do not
    nudge them.
+
+This step is done only when **every** Missing tool — both tiers — has been presented;
+showing just the recommended set and stopping is the failure to avoid.
 
 For each tool show three things:
 - its **Relevance** + the codebase **evidence** (`relevance[].evidence`, e.g. "60 java →
@@ -143,12 +146,3 @@ sh "$D/mount_mcp.sh"   # reads the resolved `mcp` setting; on => write the entry
 Writing `.mcp.json` does **not** start the server: Claude Code prompts for approval the first
 time it sees a project-scoped server (or pre-approve via `enableAllProjectMcpServers` /
 `enabledMcpjsonServers`), and reads the file at session start — restart after it changes.
-
-## Acceptance recap (issue #7)
-
-- Missing tools presented ranked, each with a sourced "where used" line — Steps 3–4.
-- No install without explicit confirmation — Step 4.
-- Chosen channel is non-privileged; `sudo` / `curl|sh` shown as text only — `pick_channel.sh`.
-- Failed/impossible install → advice, bootstrap continues — Step 5.
-- After success, re-probe; Available only if it resolves on `PATH` — Step 5.
-- `pick_channel` seam passes — `pick_channel.seam.sh` (the harness-verified piece).
