@@ -47,15 +47,24 @@ impossible install degrades to advice and the bootstrap continues.
 
 ## Settings & Scopes
 
-Settings resolve across the same two Scopes, **key-by-key — `project[key] ?? global[key]`** —
-so a repo can specialize one key without restating the whole config. Global lives under
-`~/.claude/tool-optimizer/`; project lives under the repo's `.claude/`.
+Settings live in the **YAML frontmatter** of the settings file — `.claude/tool-optimizer.local.md`
+for the project, `~/.claude/tool-optimizer/tool-optimizer.local.md` for the global default.
+They sit in frontmatter (not the inventory JSON) precisely so re-running the bootstrap never
+churns them. Settings resolve across the two Scopes **key-by-key — `project[key] ?? global[key]`** —
+so a repo can specialize one key without restating the whole config.
 
-| Setting | Values | Default | Effect |
-|---|---|---|---|
-| `nudge` | `soft` · `off` | `soft` | `off` silences the `PreToolUse` reminder; `soft` keeps the one-time, non-blocking nudge. |
-| `mcp` | `on` · `off` | `off` | `on` mounts the `ast-grep` MCP server (see below); `off` mounts nothing and removes a mount it previously wrote. |
-| `overrides` | map | *(none)* | Per-project overrides of the fixed config — e.g. remap the tool→category mapping so a repo prefers a different tool for a category. |
+```markdown
+---
+mcp: on
+---
+## (the rest of this file is the bootstrap-rendered policy block — leave it alone)
+```
+
+| Setting | Values | Default | Status | Effect |
+|---|---|---|---|---|
+| `mcp` | `on` · `off` | `off` | **wired** | `on` mounts the `ast-grep` MCP server (see below); `off` mounts nothing and removes a mount it previously wrote. |
+| `nudge` | `soft` · `off` | `soft` | partial | The `PreToolUse` reminder defaults to `soft`; it is tunable via the hook's `TO_NUDGE` env. Reading it from frontmatter is planned. |
+| `overrides` | map | *(none)* | planned | Reserved for per-project overrides of the fixed config — e.g. remap the tool→category mapping. Not yet implemented. |
 
 ## Opt-in `ast-grep` MCP
 
@@ -63,9 +72,9 @@ The lightweight default is the `ast-grep` **CLI on `PATH`** plus the policy line
 process. Turn the server on only when you want the four MCP tools (`dump_syntax_tree`,
 `test_match_code_rule`, `find_code`, `find_code_by_rule`) wired directly into the agent.
 
-Set `mcp: on` and re-run the bootstrap. On explicit consent it writes a **project-scope**
-`.mcp.json` at the repo root, adding only the `ast-grep` server and preserving any other
-servers you already have:
+Set `mcp: on` in the `.claude/tool-optimizer.local.md` frontmatter and re-run the bootstrap.
+On explicit consent it writes a **project-scope** `.mcp.json` at the repo root, adding only
+the `ast-grep` server and preserving any other servers you already have:
 
 ```json
 {

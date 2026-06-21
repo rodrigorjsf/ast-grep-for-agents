@@ -10,8 +10,9 @@
 #         TO_NOW        current time in ISO-8601 UTC  (default: date -u +"%Y-%m-%dT%H:%M:%SZ")
 #         TO_RENDER_OUT output path for the body-only markdown block
 #                       (default: .claude/tool-optimizer.local.md)
-#       Output is BODY-ONLY markdown (no YAML frontmatter). The hot path strips frontmatter
-#       if present (forward-compat), but render.sh keeps it simple and omits it entirely.
+#       render.sh regenerates only the body block. Any existing YAML frontmatter in
+#       TO_RENDER_OUT is PRESERVED (user settings — enabled/nudge/mcp/overrides — live there,
+#       so a re-render must never churn them). The hot path strips frontmatter on read.
 #       Usage:
 #         sh render.sh
 #         TO_INVENTORY=/tmp/inv.json TO_NOW="2026-01-01T00:00:00Z" TO_RENDER_OUT=/tmp/out.md sh render.sh
@@ -120,6 +121,17 @@ ${stale_note}"
 fi
 
 # --- ensure output directory exists and write ---
+# Preserve any existing YAML frontmatter: user settings live there, so a re-render
+# regenerates ONLY the body block, never churning the settings. Extract a leading
+# `---` ... `---` block if present and re-emit it above the freshly rendered body.
+frontmatter=""
+if [ -f "$RENDER_OUT" ]; then
+  frontmatter=$(sed -n '1{/^---$/!q;}; /^---$/,/^---$/p' "$RENDER_OUT")
+fi
 
 mkdir -p "$(dirname "$RENDER_OUT")"
-printf '%s\n' "$block" > "$RENDER_OUT"
+if [ -n "$frontmatter" ]; then
+  printf '%s\n\n%s\n' "$frontmatter" "$block" > "$RENDER_OUT"
+else
+  printf '%s\n' "$block" > "$RENDER_OUT"
+fi

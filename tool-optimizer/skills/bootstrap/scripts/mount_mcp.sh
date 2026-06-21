@@ -16,10 +16,14 @@
 #       setting converges to the same .mcp.json.
 # HOW:  Injectable env vars (all optional):
 #         TO_MCP_SETTING  the `mcp` value. "on"/"true"/"1"/"yes" => mount; anything else
-#                         (including unset-via-config) => unmount. If this var is unset,
-#                         the setting is read from the resolved config (resolve.sh, .mcp).
+#                         (including unset) => unmount. If this var is unset, the setting is
+#                         read from the .local.md settings frontmatter (see below).
 #         PROJECT_MCP     path to the project .mcp.json (default: .mcp.json)
-#         GLOBAL_CONFIG / PROJECT_CONFIG  forwarded to resolve.sh when TO_MCP_SETTING unset.
+#         PROJECT_SETTINGS / GLOBAL_SETTINGS  the settings files whose YAML frontmatter holds
+#                         `mcp:` (defaults: .claude/tool-optimizer.local.md and
+#                         ~/.claude/tool-optimizer/tool-optimizer.local.md). `mcp` lives in
+#                         frontmatter, NOT the inventory JSON (detect.sh overwrites that);
+#                         project frontmatter wins over global.
 #       Server entry (key "ast-grep"), no-clone portable form — runs the upstream server
 #       straight from git, so the committable .mcp.json carries no machine-specific path.
 #       Upstream: https://github.com/ast-grep/ast-grep-mcp. The assembled invocation is
@@ -36,22 +40,30 @@
 set -e
 
 PROJECT_MCP="${PROJECT_MCP:-.mcp.json}"
-SCRIPT_DIR="$(dirname "$0")"
 SERVER_KEY="ast-grep"
 
 command -v jq >/dev/null 2>&1 || { printf 'mount_mcp.sh: jq is required\n' >&2; exit 1; }
+
+# Read a flat scalar from a file's leading YAML frontmatter (the `---` ... `---` block),
+# or nothing if the file or key is absent. Mirrors how session-start-policy.sh treats the
+# .local.md frontmatter; read-only, so no churn risk.
+read_frontmatter_scalar() {
+  [ -f "$1" ] || return 0
+  sed -n '1{/^---$/!q;}; /^---$/,/^---$/p' "$1" \
+    | grep -m1 "^[[:space:]]*$2[[:space:]]*:" \
+    | sed "s/^[[:space:]]*$2[[:space:]]*:[[:space:]]*//; s/[[:space:]]*\$//; s/^[\"']//; s/[\"']\$//"
+}
 
 # --- resolve the desired state ---
 if [ -n "${TO_MCP_SETTING+x}" ]; then
   setting="$TO_MCP_SETTING"
 else
-  # Resolve in two steps, not one pipe: a failed resolution (e.g. a malformed config)
-  # makes resolve.sh exit non-zero with empty stdout. Piping it straight into jq would
-  # mask that (jq exits 0 on empty input -> setting="" -> silently treated as "off",
-  # which would UNMOUNT an already-mounted server). The separate assignment lets `set -e`
-  # abort loudly instead.
-  resolved=$(sh "$SCRIPT_DIR/resolve.sh")
-  setting=$(printf '%s' "$resolved" | jq -r '.mcp // false')
+  # `mcp` is a user setting → read it from the .local.md frontmatter, NOT the inventory JSON
+  # (detect.sh overwrites that). Project frontmatter wins; fall back to global.
+  PROJECT_SETTINGS="${PROJECT_SETTINGS:-.claude/tool-optimizer.local.md}"
+  GLOBAL_SETTINGS="${GLOBAL_SETTINGS:-${HOME}/.claude/tool-optimizer/tool-optimizer.local.md}"
+  setting=$(read_frontmatter_scalar "$PROJECT_SETTINGS" mcp)
+  [ -n "$setting" ] || setting=$(read_frontmatter_scalar "$GLOBAL_SETTINGS" mcp)
 fi
 
 case "$setting" in
