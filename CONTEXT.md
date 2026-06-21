@@ -32,6 +32,15 @@ confirmation. If an install cannot complete, the plugin reports it and continues
 the bootstrap. There is no silent or automatic install.
 _Avoid_: Auto-install, unattended install.
 
+**Channel**:
+The specific command used to install one Missing tool, chosen from `(tool, installed
+managers, OS)` by `pick_channel.sh`. A **non-privileged** channel (`brew`/`npm`/`pipx`/
+`uv`/`cargo`/`scoop`/`winget`) is emitted as `RUN` — the bootstrap may execute it on
+consent. Anything privileged or remote-script (`sudo apt`, `curl … | sh`, a from-source
+build) — and the case where no eligible manager is installed — is emitted as `MANUAL`:
+advice the user runs themselves, never auto-run.
+_Avoid_: Installer, method (say which: RUN channel vs MANUAL fallback).
+
 **Policy**:
 The token-first guidance the agent reads — "pick the tool by the shape of the
 task; a non-standard tool must beat the standard one on tokens or capability;
