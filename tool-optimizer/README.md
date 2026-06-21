@@ -134,6 +134,21 @@ missing tool the bootstrap degrades around, or a declined consented install — 
 defect and files nothing. The `needs-triage` label is applied when it can be; if it cannot,
 the issue is filed anyway.
 
+**Deduplication (best-effort).** Before filing, the skill searches the upstream tracker for an
+open issue whose title carries the same `fp:<fingerprint>` marker. On a match:
+
+- **Same context** (same `osClass`, `pluginVersion`, `packageManagers`): file nothing, add no
+  comment — the defect is already tracked.
+- **Meaningfully different context** (at least one of those three fields differs): add
+  **one sanitized comment** to the existing issue instead of opening a duplicate.
+
+The comment is built by `render-comment.sh` from the already-sanitized struct — the same trust
+boundary as the issue body, provably no raw context.
+
+> **Dedup is best-effort, not airtight.** GitHub search indexing lags by seconds, and the
+> `fp:` marker tokenizes on punctuation — rapid double-fires can still occasionally create a
+> duplicate. Do not rely on dedup as a hard guarantee.
+
 ## Files & `.gitignore`
 
 The plugin keeps its state under your repo's `.claude/` and never writes to `CLAUDE.md` /
