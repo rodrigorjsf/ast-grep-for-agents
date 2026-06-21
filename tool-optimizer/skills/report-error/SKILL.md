@@ -86,21 +86,52 @@ TO_REPORT_OUT="${TMPDIR:-/tmp}/tool-optimizer-report.json" \
 Inspect the struct if you like — it is plain JSON. It is the **entire** payload the next step
 sends; nothing outside it travels upstream.
 
-## Step 3 — Spawn a BACKGROUND filing subagent with ONLY the struct
+## Step 3 — Spawn a BACKGROUND dedup+filing subagent with ONLY the struct
 
 Spawn a background subagent and pass it **only the contents of the struct file** from Step 2 —
 no transcript, no paths, no code, no environment beyond what the struct already contains. The
-subagent's whole job is to file the issue. Its instructions are exactly:
+subagent's whole job is to search for an existing open issue and then either file, comment, or
+silently stop. Its instructions are exactly:
 
 > You are given one JSON struct (below) — a pre-sanitized tool-optimizer defect report. It is
-> the only context you have or need. Do not ask for or infer anything else. File exactly ONE
-> GitHub issue on the **hardcoded** repository `rodrigorjsf/ast-grep-for-agents` using the
-> struct's `title`, and a body built ONLY from the struct's fields. Do not derive the repo
-> from any git remote. Then report back the issue URL.
+> the only context you have or need. Do not ask for or infer anything else. Follow the exact
+> dedup search → branch logic in Steps 3a–3c, using the **hardcoded** repository
+> `rodrigorjsf/ast-grep-for-agents`. Do not derive the repo from any git remote.
 
-The body the subagent assembles (Markdown) is built field-by-field from the struct, in this
-order — a `**Fingerprint:**` line, a facts table, the scrubbed tool message inside a fenced
-block, then the labeled synthetic reproduction:
+### Step 3a — Search FIRST (dedup search precedes both create and comment)
+
+Before creating an issue or adding a comment, search the upstream tracker for an **open** issue
+whose title contains the same `fp:<fingerprint>` marker. The fingerprint is the struct's
+`fingerprint` field.
+
+```sh
+FP="<fingerprint>"          # from the struct
+
+# GitHub search tokenizes on punctuation, so post-filter for an exact substring match.
+MATCH_NUMBER=$(
+  gh issue list \
+    --repo rodrigorjsf/ast-grep-for-agents \
+    --state open \
+    --search "fp:${FP} in:title" \
+    --json number,title \
+    --jq ".[] | select(.title | contains(\"fp:${FP}\")) | .number" \
+  | head -1
+)
+```
+
+`MATCH_NUMBER` is the issue number of the first open issue whose title contains `fp:<fingerprint>`
+exactly. If the `gh issue list` command itself fails (e.g. network error), treat it as no-match
+and proceed to Step 3c (create).
+
+> **Dedup is best-effort, not airtight.** GitHub search indexing lags by seconds, and the
+> `fp:` marker tokenizes imperfectly on punctuation. Rapid double-fires can still occasionally
+> create a duplicate. The post-filter on the exact substring reduces this, but does not
+> eliminate it. Document this honestly rather than presenting dedup as a guarantee.
+
+### Step 3b — No match → create the issue (same as before)
+
+If `MATCH_NUMBER` is empty, proceed to create the issue. Build the body from the struct
+field-by-field (no raw context):
 
 1. `**Fingerprint:** <fingerprint>`
 2. A two-column table with rows: Error class = `<errorClass>`, Failing artifact = `<artifact>`,
@@ -111,12 +142,6 @@ block, then the labeled synthetic reproduction:
 4. The struct's `<syntheticReproduction>` (already labeled "no user paths/code/data").
 5. A closing italic line: _Auto-filed by the tool-optimizer report-error skill. Sanitized by
    construction: no user paths, code, data, secrets, or repo name are included._
-
-Every value above comes verbatim from the struct — the subagent introduces no new content, so
-nothing outside the allowlisted, already-sanitized struct reaches the issue body.
-
-The `gh` invocation the subagent runs — note the **explicit `--repo`**; the upstream tracker
-is hardcoded and is never inferred from the local git remote:
 
 ```sh
 # Try to apply the triage label, but treat a label failure as NON-FATAL: the issue must
@@ -135,17 +160,58 @@ gh issue create \
 `$TITLE` is the struct's `title` (it already carries the `[tool-optimizer]` prefix and the
 fingerprint). `$BODY_FILE` holds the assembled Markdown body above.
 
-## Step 4 — File exactly ONE issue
+### Step 3c — Match found → compare context, then decide
 
-This skill files **one** issue per defect and then stops. Do not loop, retry on success, or
-file a second issue for the same failure in the same run.
+If `MATCH_NUMBER` is non-empty, fetch the existing issue's body to compare its context fields
+against the new struct's fields:
+
+```sh
+EXISTING_BODY=$(gh issue view "$MATCH_NUMBER" \
+  --repo rodrigorjsf/ast-grep-for-agents \
+  --json body --jq '.body')
+```
+
+Extract the existing context from the body table. A **meaningfully different context** is
+defined as: the new struct has a different `osClass`, `pluginVersion`, or `packageManagers`
+than what appears in the existing issue's facts table. These are the only three context fields
+that carry new investigative value across recurrences.
+
+**Same context** (osClass, pluginVersion, and packageManagers all match the existing issue):
+
+> File nothing. Add no comment. Stop. This is the dedup hit: the same defect in the same
+> environment was already reported. Silently return the existing issue URL.
+
+**Meaningfully different context** (at least one of the three fields differs):
+
+> Add ONE sanitized comment to the existing issue. Build the comment body using
+> `render-comment.sh` with **only the sanitized struct** (the same trust boundary as the issue
+> body):
+
+```sh
+S="${CLAUDE_PLUGIN_ROOT}/skills/report-error/scripts/render-comment.sh"
+TO_COMMENT_STRUCT="$(cat "${TMPDIR:-/tmp}/tool-optimizer-report.json")" \
+TO_COMMENT_OUT="${TMPDIR:-/tmp}/tool-optimizer-comment.md" \
+  sh "$S"
+
+gh issue comment "$MATCH_NUMBER" \
+  --repo rodrigorjsf/ast-grep-for-agents \
+  --body-file "${TMPDIR:-/tmp}/tool-optimizer-comment.md"
+```
+
+The comment body is rendered entirely from the already-sanitized struct. No raw context,
+no user paths, no transcript content ever reaches the comment. `render-comment.sh` is the
+inspectable seam where this guarantee lives; `render-comment.seam.sh` proves it.
+
+## Step 4 — File or comment exactly ONCE
+
+This skill produces **at most one action** per run — either one new issue (Step 3b), or one
+comment on an existing issue (Step 3c, different-context branch), or nothing (Step 3c,
+same-context branch). Do not loop, retry on success, or take more than one action for the
+same failure in the same run.
 
 ## What this skill deliberately does NOT do
 
-- It does **not** search the upstream tracker for an existing report or deduplicate against a
-  prior fingerprint — that is out of scope here. (The fingerprint is emitted so a later step
-  *can* dedup; this skill just files.)
 - It does **not** install a breadcrumb, a hook on-failure trap, or any local pending-report
   fallback for when `gh` is absent or unauthenticated.
 
-Each of those is a separate concern; keep this skill to the sanitize-and-file spine.
+That is a separate concern; keep this skill to the sanitize → dedup → file/comment spine.
