@@ -1,5 +1,5 @@
 #!/bin/sh
-# WHAT: Seam test for resolve.sh — verifies key-by-key config resolution (ADR-0001).
+# WHAT: Seam test for resolve.sh — verifies key-by-key config resolution.
 # WHY:  resolve.sh is the canonical implementation of the two-scope merge rule.
 #       This seam gates correctness: project keys win over global, absent project keys
 #       fall back to global, project-only keys are included, missing-file cases are

@@ -1,7 +1,7 @@
 #!/bin/sh
 # WHAT: Picks the install channel for ONE missing tool: a non-privileged command to run,
 #       or a manual (text-only) fallback when nothing eligible is installed.
-# WHY:  ADR-0003 — the bootstrap may install a missing tool, but only through a
+# WHY:  The bootstrap may install a missing tool, but only through a
 #       non-privileged channel it can run on confirmation. It must NEVER auto-run `sudo`
 #       or `curl … | sh`; those are surfaced as text for the user to run themselves. This
 #       script is the canonical, deterministic (tool, managers, OS) -> channel decision
@@ -21,11 +21,10 @@
 #                               from-source paths, and the "no eligible manager" case).
 #       Exit: 0 on a decision (RUN or MANUAL); 2 on an unknown tool.
 #
-#       Channel + privilege model (all commands sourced from docs/tools/*.md and the
-#       recommended-stack table in docs/tools/00-overview.md):
-#         - Non-privileged, auto-runnable managers: brew npm pipx uv cargo scoop winget
-#           (the exact set ADR-0003 names). `pip`, `sudo apt/dnf`, and `curl … | sh` are
-#           MANUAL-only by rule.
+#       Channel + privilege model (every command is taken from each tool's official
+#       upstream install instructions):
+#         - Non-privileged, auto-runnable managers: brew npm pipx uv cargo scoop winget.
+#           `pip`, `sudo apt/dnf`, and `curl … | sh` are MANUAL-only by rule.
 #         - OS eligibility: brew is excluded on Windows; scoop/winget are Windows-only.
 #         - Preference order (first eligible installed manager wins): brew > cargo > pipx
 #           > uv > npm > scoop > winget.

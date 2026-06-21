@@ -10,7 +10,7 @@ description: >-
 
 # Bootstrap the tool shelf (present → consent → install)
 
-Turns the ranked tool inventory into action (ADR-0003): for each **Missing** tool,
+Turns the ranked tool inventory into action: for each **Missing** tool,
 ordered by Relevance, show *where the agent would use it*, ask the user, and — only on
 explicit confirmation — run the best **non-privileged** install channel for the OS,
 then re-probe. A failed or impossible install degrades to advice and the bootstrap
@@ -27,7 +27,7 @@ Run the three batch scripts in order; each is deterministic and injectable. Defa
 output is `.claude/tool-optimizer.local.json` (override with `TO_OUTPUT`/`TO_RANK_OUT`).
 
 ```sh
-D=tool-optimizer/skills/bootstrap/scripts
+D="${CLAUDE_PLUGIN_ROOT}/skills/bootstrap/scripts"   # install-safe; the scripts ship with the plugin
 sh "$D/detect.sh"      # probe the 10 tools -> inventory JSON (available/version/path/category)
 sh "$D/rank.sh"        # runs census.sh itself, then adds census + relevance + recommendOrder, in place
 ```
@@ -48,7 +48,7 @@ deliberately not in it (they are manual-only).
 
 ## Step 3 — Present EVERY Missing tool, ranked (never hide one)
 
-Relevance ranks and informs; it never hides a tool (ADR-0004). So present the full
+Relevance ranks and informs; it never hides a tool. So present the full
 Missing set, in two tiers:
 
 1. **Recommended (push):** the tools in `recommendOrder` (already ranked HIGH→MED→GEN).
@@ -63,7 +63,10 @@ For each tool show three things:
   verbatim, do not paraphrase or invent a new rationale;
 - the install channel from Step 4.
 
-### Sourced "where the agent uses it" (from `docs/tools/00-overview.md` + ADR-0003)
+### Where the agent uses it
+
+This table is the plugin's canonical per-tool rationale — each line is one tool's role on
+the shelf. Quote it **verbatim** at consent time; do not paraphrase or invent a new reason.
 
 | Tool | Where the agent uses it |
 |---|---|
@@ -72,7 +75,7 @@ For each tool show three things:
 | semgrep | The one thing ast-grep can't: taint / dataflow security analysis + a CWE rule registry. |
 | repomix | Compact, structured whole-repo context — map + summary + contents with token counts. |
 | files-to-prompt | Light, path-aware packing of an explicit file **subset** (`--cxml` for Claude). |
-| markitdown | Office / web docs (docx/pptx/xlsx/html) → Markdown with pipe tables — what the `pdf` skill doesn't cover. |
+| markitdown | Office / web docs (docx/pptx/xlsx/html) → Markdown with pipe tables (the formats a PDF extractor doesn't cover). |
 | duckdb | SQL over CSV / Parquet / Excel **without loading** the file — the SUM/JOIN/window engine. |
 | qsv | Sub-second CSV stats / count / slice / frequency. |
 | universal-ctags | Persistent symbol index — "where is X defined?" becomes a lookup, not a re-scan. |
@@ -91,7 +94,7 @@ It prints one TAB-separated line:
 - `MANUAL<TAB><command>` — advice only (covers the `sudo` / `curl|sh` / from-source / no-
   eligible-manager cases). **Never run a MANUAL line.** Show it for the user to run.
 
-Consent rule (ADR-0003): **nothing is installed without an explicit, per-tool
+Consent rule: **nothing is installed without an explicit, per-tool
 confirmation.** Ask the user — e.g. via `AskUserQuestion` — to approve the exact `RUN`
 command before executing it. No blanket "install all"; no silent install. If the user
 declines, skip to the next tool.

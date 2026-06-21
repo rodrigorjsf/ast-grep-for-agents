@@ -1,8 +1,7 @@
 #!/bin/sh
 # WHAT: Seam test for rank.sh — drives census.sh -> rank.sh end to end on fixed repo
 #       shapes and asserts the EXACT relevance verdict per tool per scenario.
-# WHY:  These verdicts are the validation the prototype's NOTES deferred ("fill in after
-#       driving it"). They prove the honesty ADR-0004 asks for: docs-only must NOT push
+# WHY:  These verdicts prove the ranking is honest: docs-only must NOT push
 #       ast-grep; data MUST surface DuckDB; available-but-unneeded must be flagged; the
 #       global case must split GEN-core (recommend) from GEN-conditional (show, not push);
 #       and EVERY tool gets a verdict (none omitted). Also pins two structural properties:
