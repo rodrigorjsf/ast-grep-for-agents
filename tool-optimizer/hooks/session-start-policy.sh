@@ -32,7 +32,15 @@ Before reading or searching, pick by the SHAPE of the task:
 - "Did I/we already see this?" -> claude-mem (cross-session). Verbose command output -> RTK.
 
 Guardrail: a non-standard tool must beat the standard tool (Read/Grep/rg) for THIS task on
-tokens or capability — novelty is never the reason. No standard tool is deny-listed.'
+tokens or capability — novelty is never the reason. No standard tool is deny-listed.
+
+Self-report: if a tool-optimizer Bootstrap script is GENUINELY defective — it crashes
+unexpectedly or emits clearly garbage output — invoke the `report-error` skill. It files ONE
+sanitized issue on the plugin'\''s upstream tracker (rodrigorjsf/ast-grep-for-agents), carrying
+only allowlisted facts (OS class, plugin version, package-manager set, the scrubbed error) and
+a synthetic reproduction — never your paths, code, data, secrets, or repo name. An EXPECTED
+outcome (a documented no-match exit, an expected empty result, a genuinely missing tool you
+degrade around, or a declined consented install) is NOT a defect — do not report it.'
 
 # --- read the pre-rendered block (hot path: cat/sed only, no jq, no command -v) ---
 

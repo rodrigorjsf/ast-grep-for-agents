@@ -74,6 +74,12 @@ grep -q "Local tool policy (token-first)" "$OUT_FRESH" \
 grep -q "novelty is never the reason" "$OUT_FRESH" \
   || { echo "FAIL [fresh]: policy tail not in rendered block"; fail=1; }
 
+# Self-report trigger clause must be present on the RENDERED (hot-path) block too.
+grep -q "report-error" "$OUT_FRESH" \
+  || { echo "FAIL [fresh]: self-report trigger clause not in rendered block"; fail=1; }
+grep -q "rodrigorjsf/ast-grep-for-agents" "$OUT_FRESH" \
+  || { echo "FAIL [fresh]: upstream tracker not in rendered self-report clause"; fail=1; }
+
 # Staleness note must be ABSENT (only 5 days old).
 if grep -q "re-run the bootstrap to refresh" "$OUT_FRESH"; then
   echo "FAIL [fresh]: staleness note present but inventory is only 5 days old"

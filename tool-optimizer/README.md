@@ -14,6 +14,7 @@ indexed tool answers in a fraction of the tokens.
 | **Soft nudge** | A `PreToolUse` hook gives a one-time, non-blocking reminder when a cheaper specialized tool would fit — never blocks the call. |
 | **Bootstrap** | The `bootstrap` skill detects the 10 core tools, ranks each by relevance to *this* codebase, and offers a consented, non-privileged install of the missing ones. |
 | **Opt-in MCP** | When the `mcp` setting is on, the bootstrap mounts the `ast-grep` MCP server via a project `.mcp.json`. Off by default. |
+| **Self-report** | When one of the plugin's *own* Bootstrap scripts is genuinely defective, the `report-error` skill files one **sanitized** issue on the plugin's upstream tracker — no user data, no repo name. |
 
 ## Install
 
@@ -101,6 +102,37 @@ start, so restart the session after it changes.
 
 Setting `mcp: off` and re-running the bootstrap removes the `ast-grep` entry again (and
 deletes `.mcp.json` if nothing else is left in it).
+
+## Self-report (the plugin reports its OWN defects)
+
+If one of the plugin's *own* Bootstrap scripts (`detect.sh`, `census.sh`, `rank.sh`,
+`render.sh`, `resolve.sh`, `pick_channel.sh`, `mount_mcp.sh`) is **genuinely defective** —
+it crashes or emits clearly garbage output — the `report-error` skill files **exactly one**
+GitHub issue on the plugin's **hardcoded** upstream tracker, `rodrigorjsf/ast-grep-for-agents`,
+no matter which repo the plugin is installed in. (It does **not** infer the tracker from your
+git remote — that would be the wrong destination and a privacy leak.)
+
+The report is **sanitized by construction**: the main thread builds the report struct from an
+**allowlist** of facts only —
+
+- the failing script's **plugin-relative** path (your absolute path is stripped),
+- the exit code / signal,
+- the script's own error message, **scrubbed** of paths/secrets,
+- an error class + a stable **fingerprint**,
+- the **OS class**, the **plugin version** (read from the manifest), and the detected
+  **package-manager set**,
+- a **labeled synthetic reproduction** (no user paths/code/data) —
+
+and hands the background filing subagent **only that struct**. Everything on the **denylist**
+(your triggering path, file contents, repo name/remote/org, home dir/username/absolute paths,
+env-var values, secrets) is synthesized or omitted, never copied. The `sanitize.sh` seam is the
+single inspectable place that guarantee lives, and `sanitize.seam.sh` proves it by seeding a
+user path, a home dir, a fake secret, and a repo name and asserting none of them survive.
+
+An **expected outcome** — a documented no-match exit, an expected empty result, a genuinely
+missing tool the bootstrap degrades around, or a declined consented install — is **not** a
+defect and files nothing. The `needs-triage` label is applied when it can be; if it cannot,
+the issue is filed anyway.
 
 ## Files & `.gitignore`
 

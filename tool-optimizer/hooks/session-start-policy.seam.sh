@@ -40,7 +40,13 @@ printf '%s' "$out" | jq -er '.hookSpecificOutput.additionalContext | contains("L
 printf '%s' "$out" | jq -er '.hookSpecificOutput.additionalContext | contains("novelty is never the reason")' >/dev/null \
   || { echo "FAIL [fallback]: policy tail missing from additionalContext"; fail=1; }
 
-echo "  [ok] fallback path: absent .local.md emits static Policy"
+# Self-report trigger clause must be present on the FALLBACK path.
+printf '%s' "$out" | jq -er '.hookSpecificOutput.additionalContext | contains("report-error")' >/dev/null \
+  || { echo "FAIL [fallback]: self-report trigger clause missing from static Policy"; fail=1; }
+printf '%s' "$out" | jq -er '.hookSpecificOutput.additionalContext | contains("rodrigorjsf/ast-grep-for-agents")' >/dev/null \
+  || { echo "FAIL [fallback]: upstream tracker missing from self-report clause"; fail=1; }
+
+echo "  [ok] fallback path: absent .local.md emits static Policy (with self-report clause)"
 
 # ============================================================================
 # Case 2: hot path — .local.md with synthetic block → block content emitted
