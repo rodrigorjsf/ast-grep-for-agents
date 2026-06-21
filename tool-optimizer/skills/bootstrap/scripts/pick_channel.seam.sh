@@ -4,7 +4,7 @@
 #       and the manager-present-but-wrong-tool case.
 # WHY:  pick_channel is the one deterministic, harness-verifiable piece of slice #7 (the
 #       present/consent/install/re-probe flow around it is HITL and cannot be driven
-#       here). These assertions pin ADR-0003's rules: a non-privileged command is chosen
+#       here). These assertions pin the channel rules: a non-privileged command is chosen
 #       when one is installed; sudo / curl|sh / from-source paths only ever appear as
 #       MANUAL text, never RUN; OS eligibility excludes brew on Windows and scoop/winget
 #       off Windows; preference order is brew > cargo > pipx > uv > npm > scoop > winget.

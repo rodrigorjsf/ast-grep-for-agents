@@ -1,7 +1,7 @@
 #!/bin/sh
 # WHAT: Ranks every detected tool's Relevance to THIS codebase and persists the verdicts
 #       into the project inventory JSON.
-# WHY:  ADR-0004 — Relevance ranks which Missing tools to recommend and flags
+# WHY:  Relevance ranks which Missing tools to recommend and flags
 #       Available-but-unneeded ones ("you have DuckDB, but this repo has no tabular
 #       data"), with the evidence behind each verdict. It NEVER hides a tool and NEVER
 #       gates detection: it is a layer ON TOP of the full inventory, not a filter before
@@ -10,7 +10,7 @@
 #       census.sh. Order: detect.sh -> census.sh -> rank.sh (this).
 #       detect.sh overwrites the whole inventory file, so the relevance block survives a
 #       re-detect ONLY because rank.sh runs again after it — it is regenerated, not
-#       preserved. This keeps Relevance in sync as the codebase evolves (ADR-0004).
+#       preserved. This keeps Relevance in sync as the codebase evolves.
 # HOW:  Injectable env vars (all optional):
 #         TO_CENSUS      read census JSON from this file (default: run census.sh).
 #         TO_INVENTORY   inventory JSON to read + persist into
@@ -24,13 +24,12 @@
 #         "recommendOrder" the Missing+recommended tools, ranked by relevance then name.
 #       Requires jq (batch-script dependency, like detect/render/resolve).
 #
-#       Thresholds + per-tool mapping below are the validated prototype's decision
-#       (prototypes/relevance_rank_prototype.py + prototypes/NOTES.md, absorbed by #6).
-#       The one behavioral change the prototype surfaced is implemented here: the global
-#       (no-codebase) verdict is split into GEN-core (broadly useful -> recommended) vs
-#       GEN-conditional (gated on a need invisible without a codebase -> shown, not
-#       pushed). rtk is GEN-core: its value ("output compression, any project") is
-#       unconditional, unlike the doc/data/security tools whose value is conditional.
+#       The thresholds + per-tool mapping below are pinned by rank.seam.sh (exact
+#       per-scenario verdicts). The global (no-codebase) verdict is split into GEN-core
+#       (broadly useful -> recommended) vs GEN-conditional (gated on a need invisible
+#       without a codebase -> shown, not pushed). rtk is GEN-core: its value ("output
+#       compression, any project") is unconditional, unlike the doc/data/security tools
+#       whose value is conditional.
 #
 #       The tool list is derived by filtering inventory VALUES that carry an `available`
 #       field — so non-tool top-level keys (detectedAt, and rank's own census /

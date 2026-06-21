@@ -1,6 +1,6 @@
 #!/bin/sh
 # WHAT: Merges global and project tool-optimizer configs with key-by-key resolution.
-# WHY:  ADR-0001 establishes two config scopes: global (~/.claude/tool-optimizer/config.json)
+# WHY:  There are two config scopes: global (~/.claude/tool-optimizer/config.json)
 #       holds the machine inventory + default policy; project (.claude/tool-optimizer.local.json)
 #       holds project-specific overrides. Resolution is shallow/key-by-key: project[key] wins
 #       when present; absent project keys fall back to global. This script is the canonical
@@ -25,7 +25,7 @@
 #
 #       Merge rule: jq -s '.[0] + .[1]' global project
 #       The jq + operator on objects: right operand (project) wins per key. This is the
-#       exact shallow key-by-key merge specified in ADR-0001. Deep merge (*) is NOT used.
+#       exact shallow key-by-key merge the resolution rule specifies. Deep merge (*) is NOT used.
 #
 #       Usage:
 #         sh resolve.sh

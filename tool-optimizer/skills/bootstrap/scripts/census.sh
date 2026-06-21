@@ -1,6 +1,6 @@
 #!/bin/sh
 # WHAT: Censuses the project from `git ls-files` into deterministic, bucketed counts.
-# WHY:  ADR-0004 — the bootstrap ranks every tool's Relevance to THIS codebase from
+# WHY:  The bootstrap ranks every tool's Relevance to THIS codebase from
 #       evidence (counts), never from novelty. The census is that evidence: source by
 #       language, tabular, binary docs, notebooks, build files, repo size, monorepo
 #       markers. Cheap + deterministic: it reads the tracked-file LIST only — no
@@ -16,10 +16,9 @@
 #       SessionStart hot path). by_lang is sorted count-desc then name-asc; build_files
 #       sorted; so two runs over the same tree are byte-identical.
 #
-#       The bucket maps below are the validated set from the throwaway prototype
-#       (prototypes/relevance_rank_prototype.py, absorbed by issue #6). Shell (.sh) is
-#       deliberately NOT counted as source — the prototype's validated LANG_EXT set
-#       excludes it; adding it would shift the verdicts the prototype confirmed.
+#       Shell (.sh) is deliberately NOT counted as source — the LANG_EXT set below
+#       excludes it; adding it would shift the relevance verdicts (the rank.seam.sh
+#       fixtures pin the expected counts, so changing the buckets fails that seam).
 #
 #       Usage:
 #         sh census.sh
