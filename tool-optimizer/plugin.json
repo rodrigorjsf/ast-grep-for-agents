@@ -1,9 +1,0 @@
-{
-  "name": "tool-optimizer",
-  "version": "0.1.0",
-  "description": "Injects the token-first local tool policy into every session via SessionStart.",
-  "author": {
-    "name": "Rodrigo França",
-    "email": "rodrigo_rjsf@hotmail.com"
-  }
-}
