@@ -83,5 +83,37 @@ jq -e '.someOtherKey == 1' "$MCP" >/dev/null || fail "case6: unrelated key shoul
 jq -e 'has("mcpServers") | not' "$MCP" >/dev/null || fail "case6: emptied mcpServers should be dropped"
 echo "  [ok] off: emptied mcpServers dropped, unrelated key preserved, file kept"
 
+# ============================================================================
+# Case 7: on over an EMPTY pre-existing file → entry still written (not a silent no-op)
+# ============================================================================
+: > "$MCP"   # empty file (exists, 0 bytes)
+TO_MCP_SETTING=on PROJECT_MCP="$MCP" "$SH_BIN" "$MOUNT_SH" || fail "case7 on/empty exited non-zero"
+jq -e '.mcpServers["ast-grep"].command == "uvx"' "$MCP" >/dev/null \
+  || fail "case7: on over an empty file must still write the ast-grep entry"
+echo "  [ok] on over empty file: entry written (no silent no-op)"
+
+# ============================================================================
+# Case 8: off over an EMPTY pre-existing file → removed, no lone-newline litter
+# ============================================================================
+printf '   \n' > "$MCP"   # whitespace-only file
+TO_MCP_SETTING=off PROJECT_MCP="$MCP" "$SH_BIN" "$MOUNT_SH" || fail "case8 off/blank exited non-zero"
+[ ! -f "$MCP" ] || fail "case8: off over a blank file must delete it (no empty litter)"
+echo "  [ok] off over blank file: deleted (no litter)"
+
+# ============================================================================
+# Case 9: a malformed resolved config must ABORT, never silently unmount
+# ============================================================================
+badcfg="$tmpdir/bad-config.json"; printf '{ this is not json' > "$badcfg"
+cat > "$MCP" <<'ENDJSON'
+{ "mcpServers": { "ast-grep": { "command": "uvx", "args": [], "env": {} }, "other": { "command": "x", "args": [] } } }
+ENDJSON
+if env -u TO_MCP_SETTING GLOBAL_CONFIG="$tmpdir/no-global.json" PROJECT_CONFIG="$badcfg" PROJECT_MCP="$MCP" \
+     "$SH_BIN" "$MOUNT_SH" 2>/dev/null; then
+  fail "case9: malformed config should abort non-zero, not 'succeed' as off"
+fi
+jq -e '.mcpServers["ast-grep"]' "$MCP" >/dev/null \
+  || fail "case9: ast-grep entry must survive when config resolution fails"
+echo "  [ok] malformed config: aborts without silently unmounting"
+
 echo "mount_mcp seam ok"
 exit 0

@@ -45,7 +45,13 @@ command -v jq >/dev/null 2>&1 || { printf 'mount_mcp.sh: jq is required\n' >&2; 
 if [ -n "${TO_MCP_SETTING+x}" ]; then
   setting="$TO_MCP_SETTING"
 else
-  setting=$(sh "$SCRIPT_DIR/resolve.sh" | jq -r '.mcp // false')
+  # Resolve in two steps, not one pipe: a failed resolution (e.g. a malformed config)
+  # makes resolve.sh exit non-zero with empty stdout. Piping it straight into jq would
+  # mask that (jq exits 0 on empty input -> setting="" -> silently treated as "off",
+  # which would UNMOUNT an already-mounted server). The separate assignment lets `set -e`
+  # abort loudly instead.
+  resolved=$(sh "$SCRIPT_DIR/resolve.sh")
+  setting=$(printf '%s' "$resolved" | jq -r '.mcp // false')
 fi
 
 case "$setting" in
@@ -56,12 +62,16 @@ esac
 # The server entry — no-clone uvx form. [sourced — unverified]
 SERVER_JSON='{"command":"uvx","args":["--from","git+https://github.com/ast-grep/ast-grep-mcp","ast-grep-server"],"env":{}}'
 
-# --- load current .mcp.json (missing => {}) ---
-if [ -f "$PROJECT_MCP" ]; then
-  current=$(cat "$PROJECT_MCP")
-else
+# --- load current .mcp.json: missing/empty/blank => {}; malformed => refuse (don't clobber) ---
+# jq emits zero outputs (and exits 0) on empty/whitespace input, so a blank file would
+# otherwise yield current="" and either write a lone-newline non-mount or leave litter.
+if [ ! -f "$PROJECT_MCP" ] || [ ! -s "$PROJECT_MCP" ]; then
   current='{}'
+elif ! current=$(jq -c '.' "$PROJECT_MCP" 2>/dev/null); then
+  printf 'mount_mcp.sh: %s is not valid JSON; refusing to modify it\n' "$PROJECT_MCP" >&2
+  exit 1
 fi
+[ -n "$current" ] || current='{}'   # whitespace-only file => jq emitted nothing => treat as {}
 
 if [ "$want_on" = "1" ]; then
   # Ensure mcpServers[SERVER_KEY] = entry, preserving every other server and top-level key.
