@@ -66,6 +66,20 @@ The five canonical triage roles use their default label strings (`needs-triage`,
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+### Plugin artifacts are self-contained
+
+Every plugin artifact — `SKILL.md`, scripts, hooks under a plugin like `tool-optimizer/` —
+must stand alone. It may **not** reference repo documents outside the plugin's own
+directory: not `docs/adr/*`, not `docs/tools/*`, not the repo-root `CONTEXT.md`. When the
+plugin is installed those paths do not travel with it, so the reference dangles. Put any
+contextualizing rationale **inline in the artifact**, or in a file **bundled inside the
+plugin** that the artifact points to. Cite primary/upstream sources (e.g. a tool's
+official installer) rather than sibling repo docs. Reference sibling scripts via
+`${CLAUDE_PLUGIN_ROOT}/…`, never a repo-relative path that assumes CWD = repo root.
+(Repo docs like the ADRs and `CONTEXT.md` still record the plugin's design for
+maintainers — the rule forbids an artifact *depending* on them at runtime, not the docs
+existing.)
+
 ## Applied Learning
 
 When something fails repeatedly, when User has to re-explain, or when a workaround is found for a platform/tool limitation, add a one-line bullet here. Keep each bullet under 15 words. No explanations. Only add things that will save time in future sessions.
@@ -79,3 +93,7 @@ When something fails repeatedly, when User has to re-explain, or when a workarou
 - `curl|sh` installers are sandbox-blocked; install via `brew` (no sudo) instead.
 - Claude Code plugins have no native `rules/` component; inject standing policy via SessionStart hook.
 - PreToolUse hook: `permissionDecision: allow` + `systemMessage` = non-blocking advisory to Claude.
+- orchestrate `finalize_slice` commit needs repo-local git identity; global `~/.gitconfig` unseen.
+- orchestrate run-state `resolvedRouting.fallback`: omit when none; `null` fails the render schema.
+- `gh pr edit` fails on Projects-classic GraphQL; use `gh api -X PATCH .../pulls/N -f body=`.
+- Claude Code plugin manifest goes in `.claude-plugin/plugin.json`; hook scripts need `+x`.
