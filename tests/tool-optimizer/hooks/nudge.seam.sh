@@ -11,7 +11,8 @@
 
 set -e
 
-here=$(dirname "$0")
+here="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+here="$(printf '%s' "$here" | sed 's#/tests/tool-optimizer/#/tool-optimizer/#')"
 NUDGE_SH="$here/nudge.sh"
 
 # --- temp dir & cleanup -----------------------------------------------------

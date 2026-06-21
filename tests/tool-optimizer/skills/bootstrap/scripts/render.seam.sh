@@ -13,7 +13,8 @@
 
 set -e
 
-SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(printf '%s' "$SCRIPT_DIR" | sed 's#/tests/tool-optimizer/#/tool-optimizer/#')"
 RENDER_SH="$SCRIPT_DIR/render.sh"
 
 # Capture sh path before any PATH manipulation.

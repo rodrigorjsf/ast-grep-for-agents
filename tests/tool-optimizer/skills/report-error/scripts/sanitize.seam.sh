@@ -14,7 +14,8 @@
 
 set -e
 
-SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(printf '%s' "$SCRIPT_DIR" | sed 's#/tests/tool-optimizer/#/tool-optimizer/#')"
 SANITIZE_SH="$SCRIPT_DIR/sanitize.sh"
 SH_BIN=$(command -v sh)
 

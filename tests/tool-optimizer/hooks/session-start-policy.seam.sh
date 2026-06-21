@@ -15,7 +15,8 @@
 
 set -e
 
-here=$(dirname "$0")
+here="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+here="$(printf '%s' "$here" | sed 's#/tests/tool-optimizer/#/tool-optimizer/#')"
 HOOK_SH="$here/session-start-policy.sh"
 
 tmpdir=$(mktemp -d)

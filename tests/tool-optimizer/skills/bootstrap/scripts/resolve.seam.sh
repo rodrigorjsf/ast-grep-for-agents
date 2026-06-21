@@ -12,7 +12,8 @@
 
 set -e
 
-SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(printf '%s' "$SCRIPT_DIR" | sed 's#/tests/tool-optimizer/#/tool-optimizer/#')"
 RESOLVE_SH="$SCRIPT_DIR/resolve.sh"
 
 SH_BIN=$(command -v sh)
