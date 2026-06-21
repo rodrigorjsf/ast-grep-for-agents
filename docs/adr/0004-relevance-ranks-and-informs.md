@@ -30,3 +30,24 @@ transparency the requirement asks for, and would conflict with the zero-deny sta
   sorted output — no full-tree walk on a large repo.
 - New testing seam: `census(repo) → counts` and `rank(census, inventory) → verdicts` are
   pure functions verified with repo fixtures (extends the seam set in the PRD).
+
+## Thresholds and the GEN split (implementation note)
+
+The verdict thresholds were tuned on a throwaway TUI prototype driven through real repo
+shapes (Java monorepo, docs-only, data-heavy, tiny, this repo via real `git ls-files`,
+and the empty/global case), then absorbed into `census.sh` + `rank.sh` and pinned by the
+`census`/`rank` seam tests (which now *are* the recorded verdict the prototype deferred):
+
+- `SOURCE_HIGH=50`, `SOURCE_MED=10` — supported-language source count → ast-grep / ctags tier.
+- `REPO_LARGE=200`, `REPO_MED=50` — tracked-file count → repomix / files-to-prompt tier.
+- `DOCS_HIGH=3` (Office/web docs → markitdown), `TABULAR_HIGH=3` (tabular files → duckdb).
+- `security_source` sums security-relevant languages only (java, python, js/ts, go, c/cpp,
+  ruby) — **rust is source but not security-relevant**, so it lifts ast-grep but not semgrep.
+
+The prototype surfaced one behavioral fix, adopted here: the **global** (no-codebase)
+verdict splits into **GEN-core** (broadly useful → recommended even with no codebase: rg,
+ast-grep, repomix, files-to-prompt, universal-ctags, **rtk**) vs **GEN-conditional** (gated
+on a need invisible without a codebase → shown but not pushed: semgrep, duckdb, qsv,
+markitdown). Recommending a tool while its own evidence says "only if you handle X" is
+incoherent; the split fixes it. `rtk` is GEN-core because its value ("output compression,
+any project") is unconditional, unlike the doc/data/security tools.
