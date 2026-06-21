@@ -97,3 +97,4 @@ When something fails repeatedly, when User has to re-explain, or when a workarou
 - orchestrate run-state `resolvedRouting.fallback`: omit when none; `null` fails the render schema.
 - `gh pr edit` fails on Projects-classic GraphQL; use `gh api -X PATCH .../pulls/N -f body=`.
 - Claude Code plugin manifest goes in `.claude-plugin/plugin.json`; hook scripts need `+x`.
+- Plugin installs git-clone the whole dir; keep `*.seam.sh` in repo-root `tests/`, not in `tool-optimizer/`.

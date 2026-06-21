@@ -94,3 +94,28 @@ A deterministic, user-agreed value consolidated during the bootstrap grilling
 (e.g. config path, tool→category mapping, nudge triggers). Non-random and
 reproducible across runs.
 _Avoid_: Settings, preferences, options.
+
+**Self-report** (phone-home):
+The plugin reporting one of *its own* Bootstrap-script defects (a crash or clearly
+garbage output) by filing **exactly one** GitHub issue on its **hardcoded** upstream
+tracker — `rodrigorjsf/ast-grep-for-agents` — regardless of the repo it is installed
+in. It is the deliberate opposite of the project's normal "tracker = this repo" rule:
+the destination is the plugin's tracker, never inferred from the user's git remote
+(the remote is itself denylisted). An **expected outcome** (a documented no-match exit,
+an expected empty result, a genuinely Missing tool degraded around, or a declined
+Consented install) is **not** a defect and files nothing.
+_Avoid_: Telemetry, analytics, crash-reporting (those imply silent/continuous data
+collection; a self-report is one issue, per genuine defect, with no user data).
+
+**Sanitize-by-construction**:
+The privacy posture of the Self-report: the report struct is **built from an allowlist
+of facts only** (the failing artifact's plugin-relative path, exit code/signal, the
+tool's own scrubbed error message, an error class + fingerprint, OS class, plugin
+version, detected package-manager set) plus a **labeled synthetic reproduction** — and
+the background filing subagent is handed **only that struct**. Everything on the
+**denylist** (triggering user path, file contents, repo name/remote/org,
+home dir/username/absolute paths, env-var values, secrets) is synthesized or omitted,
+never copied. A positive allowlist cannot leak a field it never copies — the opposite
+of scrubbing a raw transcript, which is only as good as the last redaction regex.
+_Avoid_: Redact, scrub, anonymize (those name a blocklist pass over raw data; construction
+means the raw data never enters the struct in the first place).

@@ -12,3 +12,9 @@ examples/bench/sample.*
 .claude/*.local.json
 .claude/*.local.md
 .orchestrate/
+
+# tool-optimizer hook on-failure breadcrumb (local, never committed)
+.claude/tool-optimizer.breadcrumb
+
+# tool-optimizer gh-absent pending-reports (local, never committed; filed manually when gh is available)
+.claude/tool-optimizer.pending-reports.jsonl

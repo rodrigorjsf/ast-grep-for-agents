@@ -14,6 +14,7 @@ indexed tool answers in a fraction of the tokens.
 | **Soft nudge** | A `PreToolUse` hook gives a one-time, non-blocking reminder when a cheaper specialized tool would fit — never blocks the call. |
 | **Bootstrap** | The `bootstrap` skill detects the 10 core tools, ranks each by relevance to *this* codebase, and offers a consented, non-privileged install of the missing ones. |
 | **Opt-in MCP** | When the `mcp` setting is on, the bootstrap mounts the `ast-grep` MCP server via a project `.mcp.json`. Off by default. |
+| **Self-report** | When one of the plugin's *own* Bootstrap scripts is genuinely defective, the `report-error` skill files one **sanitized** issue on the plugin's upstream tracker — no user data, no repo name. |
 
 ## Install
 
@@ -102,6 +103,73 @@ start, so restart the session after it changes.
 Setting `mcp: off` and re-running the bootstrap removes the `ast-grep` entry again (and
 deletes `.mcp.json` if nothing else is left in it).
 
+## Self-report (the plugin reports its OWN defects)
+
+If one of the plugin's *own* Bootstrap scripts (`detect.sh`, `census.sh`, `rank.sh`,
+`render.sh`, `resolve.sh`, `pick_channel.sh`, `mount_mcp.sh`) is **genuinely defective** —
+it crashes or emits clearly garbage output — the `report-error` skill files **exactly one**
+GitHub issue on the plugin's **hardcoded** upstream tracker, `rodrigorjsf/ast-grep-for-agents`,
+no matter which repo the plugin is installed in. (It does **not** infer the tracker from your
+git remote — that would be the wrong destination and a privacy leak.)
+
+**Hook on-failure breadcrumb.** Hook crashes are harder to surface than Bootstrap script
+crashes — a `PreToolUse` crash only reaches the agent via the blocking exit code, and a
+`SessionStart` crash is entirely silent until the next session. Each registered hook
+(`session-start-policy.sh`, `nudge.sh`) installs a POSIX `EXIT` trap that, on any *unexpected*
+non-zero exit, appends a single sanitized line — `artifact-identity#exit-code` — to a local,
+gitignored breadcrumb file (`.claude/tool-optimizer.breadcrumb`). No paths, no file contents,
+no network calls run on the hook hot path. The `SessionStart` hook reads this file at the start
+of the next session; when non-empty, it appends a one-line pointer to the injected context
+so the agent knows to invoke `report-error` to file the pending defect(s) upstream. This
+mechanism recovers even the silent `SessionStart`-crash case across session boundaries.
+
+The report is **sanitized by construction**: the main thread builds the report struct from an
+**allowlist** of facts only —
+
+- the failing script's **plugin-relative** path (your absolute path is stripped),
+- the exit code / signal,
+- the script's own error message, **scrubbed** of paths/secrets,
+- an error class + a stable **fingerprint**,
+- the **OS class**, the **plugin version** (read from the manifest), and the detected
+  **package-manager set**,
+- a **labeled synthetic reproduction** (no user paths/code/data) —
+
+and hands the background filing subagent **only that struct**. Everything on the **denylist**
+(your triggering path, file contents, repo name/remote/org, home dir/username/absolute paths,
+env-var values, secrets) is synthesized or omitted, never copied. The `sanitize.sh` seam is the
+single inspectable place that guarantee lives, and `sanitize.seam.sh` proves it by seeding a
+user path, a home dir, a fake secret, and a repo name and asserting none of them survive.
+
+**gh-absent fallback (lossless local pending).** Before spawning the filing subagent, the
+skill runs a gh-availability gate (`file-or-pend.sh`). If `gh` is **missing or
+unauthenticated**, the already-sanitized struct is appended (compact JSONL, one struct per
+line) to a local, gitignored pending-reports file — `.claude/tool-optimizer.pending-reports.jsonl`
+— and the skill stops. No error is thrown, no user prompt appears. The pending file accumulates
+reports until a human or a future gh-available session files them manually. **No auto-flush is
+implemented** — the skill never reads the pending file back. Once `gh` is available, file
+pending reports manually by reading each JSONL line and running the dedup+file path from
+Step 3 of SKILL.md.
+
+An **expected outcome** — a documented no-match exit, an expected empty result, a genuinely
+missing tool the bootstrap degrades around, or a declined consented install — is **not** a
+defect and files nothing. The `needs-triage` label is applied when it can be; if it cannot,
+the issue is filed anyway.
+
+**Deduplication (best-effort).** Before filing, the skill searches the upstream tracker for an
+open issue whose title carries the same `fp:<fingerprint>` marker. On a match:
+
+- **Same context** (same `osClass`, `pluginVersion`, `packageManagers`): file nothing, add no
+  comment — the defect is already tracked.
+- **Meaningfully different context** (at least one of those three fields differs): add
+  **one sanitized comment** to the existing issue instead of opening a duplicate.
+
+The comment is built by `render-comment.sh` from the already-sanitized struct — the same trust
+boundary as the issue body, provably no raw context.
+
+> **Dedup is best-effort, not airtight.** GitHub search indexing lags by seconds, and the
+> `fp:` marker tokenizes on punctuation — rapid double-fires can still occasionally create a
+> duplicate. Do not rely on dedup as a hard guarantee.
+
 ## Files & `.gitignore`
 
 The plugin keeps its state under your repo's `.claude/` and never writes to `CLAUDE.md` /
@@ -111,13 +179,17 @@ The plugin keeps its state under your repo's `.claude/` and never writes to `CLA
 |---|---|---|
 | `.claude/tool-optimizer.local.json` | machine-detected tool inventory (regenerated by the bootstrap) | no — user-local |
 | `.claude/tool-optimizer.local.md` | rendered SessionStart block + your settings | no — user-local |
+| `.claude/tool-optimizer.breadcrumb` | hook on-failure breadcrumb (written by the EXIT trap; read and cleared by the agent after filing) | no — user-local |
+| `.claude/tool-optimizer.pending-reports.jsonl` | gh-absent pending reports (JSONL; appended when `gh` is missing or unauthenticated; filed manually when `gh` is available) | no — user-local |
 | `.mcp.json` | the opt-in MCP mount (only when `mcp: on`) | your call — it's a normal project file |
 
-Add the two user-local files to `.gitignore`:
+Add the user-local files to `.gitignore`:
 
 ```gitignore
 .claude/*.local.json
 .claude/*.local.md
+.claude/tool-optimizer.breadcrumb
+.claude/tool-optimizer.pending-reports.jsonl
 ```
 
 The `.mcp.json` is yours: commit it to share the `ast-grep` server with the team (the

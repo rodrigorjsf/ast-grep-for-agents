@@ -22,6 +22,12 @@ set -e
 NUDGE_SETTING="${TO_NUDGE:-soft}"
 SEEN_FILE="${TO_NUDGE_SEEN:-${TMPDIR:-/tmp}/tool-optimizer-nudge-$PPID.seen}"
 SIZE_MAX="${TO_NUDGE_SIZE_MAX:-102400}"
+BREADCRUMB="${TO_BREADCRUMB:-.claude/tool-optimizer.breadcrumb}"
+
+# --- on-failure trap --------------------------------------------------------
+# Fires only on unexpected non-zero exit. Appends artifact-identity#exit-code
+# to the local breadcrumb file. NO paths, NO file contents, NO network calls.
+trap 'rc=$?; [ "$rc" -ne 0 ] && { mkdir -p "$(dirname "$BREADCRUMB")" 2>/dev/null; printf "hooks/nudge.sh#%s\n" "$rc" >> "$BREADCRUMB" 2>/dev/null; }; :' EXIT
 
 # --- helpers ----------------------------------------------------------------
 
