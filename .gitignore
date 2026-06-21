@@ -12,3 +12,6 @@ examples/bench/sample.*
 .claude/*.local.json
 .claude/*.local.md
 .orchestrate/
+
+# tool-optimizer hook on-failure breadcrumb (local, never committed)
+.claude/tool-optimizer.breadcrumb

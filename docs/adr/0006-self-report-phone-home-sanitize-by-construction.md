@@ -46,6 +46,13 @@ or a declined consented install) is **not** a defect and files nothing.
 - The plugin version in the report is read from the single source of truth, the plugin manifest
   (`.claude-plugin/plugin.json`), so a report always names the version that produced the defect.
 - This slice is the **tracer-bullet spine**: it files one sanitized issue end to end. It
-  deliberately does **not** dedup against an existing upstream fingerprint, install hook
-  on-failure breadcrumbs, or add a local pending-report fallback for when `gh` is absent — those
-  are separate, later concerns layered on top of this spine.
+  deliberately does **not** dedup against an existing upstream fingerprint or add a local
+  pending-report fallback for when `gh` is absent — those are separate, later concerns layered
+  on top of this spine.
+- **Hook on-failure breadcrumb (slice #26).** Hook crashes are harder to surface than Bootstrap
+  crashes, so each registered hook (`session-start-policy.sh`, `nudge.sh`) now installs a POSIX
+  `EXIT` trap that appends a sanitized `artifact-identity#exit-code` line to
+  `.claude/tool-optimizer.breadcrumb` on any unexpected non-zero exit. The `SessionStart` hook
+  reads this file at the next session start and, when non-empty, injects a one-line pointer
+  directing the agent to invoke `report-error`. The file is gitignored; no paths, no file
+  contents, and no network calls run on the hook hot path.
