@@ -18,3 +18,10 @@ examples/bench/sample.*
 
 # tool-optimizer gh-absent pending-reports (local, never committed; filed manually when gh is available)
 .claude/tool-optimizer.pending-reports.jsonl
+
+# Cursor port: the TO_STATE_DIR=.cursor state-dir mirrors of the .claude user-local files
+# (never committed — same posture as the .claude/ entries above)
+.cursor/*.local.json
+.cursor/*.local.md
+.cursor/tool-optimizer.breadcrumb
+.cursor/tool-optimizer.pending-reports.jsonl

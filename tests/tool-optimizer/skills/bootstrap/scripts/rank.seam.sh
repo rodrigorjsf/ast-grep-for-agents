@@ -49,6 +49,13 @@ vflag() { jq -er ".relevance[] | select(.tool==\"$2\") | .$3 == true" "$1" >/dev
 vnflag(){ jq -er ".relevance[] | select(.tool==\"$2\") | .$3 == false" "$1" >/dev/null 2>&1 || fail "$4"; }
 
 # ===========================================================================
+# AC1: Relevance reported honestly with evidence sourced from the census.
+#   Scenarios A–E each assert that every tool gets a verdict, that the verdict
+#   matches the codebase shape (e.g. "0 tabular files → DuckDB NA"), and that
+#   `relevance[].evidence` is populated from the census, not improvised.
+# ===========================================================================
+
+# ===========================================================================
 # Scenario A: Java monorepo — ast-grep / repomix / ctags HIGH and recommended
 # ===========================================================================
 {
@@ -148,6 +155,44 @@ TO_CENSUS="$TMP/data.census.json" TO_INVENTORY="$TMP/redetect.inv.json" TO_RANK_
 assert "$TMP/redetect.out.json" '.relevance | type == "array"'      "re-detect: relevance must regenerate after detect overwrite"
 assert "$TMP/redetect.out.json" '(.relevance | length) == 10'       "re-detect: regenerated relevance covers all 10 tools"
 assert "$TMP/redetect.out.json" '.census | type == "object"'        "re-detect: census must be persisted into the inventory"
+
+# ===========================================================================
+# State-dir contract: TO_STATE_DIR drives the INV_PATH default (both the inventory
+#   READ and, when TO_RANK_OUT is unset, the in-place WRITE-back). Granular
+#   TO_INVENTORY / TO_RANK_OUT still win.
+#   The scenarios above pin TO_INVENTORY + TO_RANK_OUT, which does NOT exercise the
+#   default. Here both granular vars are UNSET and rank runs from a tmp CWD, so the
+#   derived default is observable and the worktree is never polluted.
+#     - TO_STATE_DIR unset   -> reads+writes .claude/tool-optimizer.local.json (backward-compat).
+#     - TO_STATE_DIR=.cursor -> reads+writes .cursor/tool-optimizer.local.json  (Cursor port).
+# ===========================================================================
+SD_CWD="$TMP/sd-cwd"
+
+# --- default (umbrella unset): seed inventory under .claude, rank in place ---
+mkdir -p "$SD_CWD/.claude"
+mkinv "ripgrep" > "$SD_CWD/.claude/tool-optimizer.local.json"
+( cd "$SD_CWD" && env -u TO_INVENTORY -u TO_RANK_OUT -u TO_STATE_DIR \
+    TO_CENSUS="$TMP/data.census.json" "$SCRIPT_DIR/rank.sh" ) \
+  || fail "state-dir/default: rank.sh must succeed reading the .claude default inventory"
+assert "$SD_CWD/.claude/tool-optimizer.local.json" '(.relevance | length) == 10' \
+  "state-dir/default: rank must write the relevance block back to the .claude default in place"
+
+# --- umbrella=.cursor: seed inventory under .cursor, rank in place ---
+mkdir -p "$SD_CWD/.cursor"
+mkinv "ripgrep" > "$SD_CWD/.cursor/tool-optimizer.local.json"
+( cd "$SD_CWD" && env -u TO_INVENTORY -u TO_RANK_OUT TO_STATE_DIR=".cursor" \
+    TO_CENSUS="$TMP/data.census.json" "$SCRIPT_DIR/rank.sh" ) \
+  || fail "state-dir/cursor: rank.sh must succeed reading the .cursor inventory"
+assert "$SD_CWD/.cursor/tool-optimizer.local.json" '(.relevance | length) == 10' \
+  "state-dir/cursor: rank must write the relevance block back to the .cursor default in place"
+
+# --- granular wins: explicit TO_INVENTORY beats the umbrella ---
+mkinv "ripgrep" > "$TMP/gran.inv.json"
+( cd "$SD_CWD" && env TO_STATE_DIR=".cursor" TO_INVENTORY="$TMP/gran.inv.json" \
+    TO_RANK_OUT="$TMP/gran.out.json" TO_CENSUS="$TMP/data.census.json" "$SCRIPT_DIR/rank.sh" ) \
+  || fail "state-dir/granular: rank.sh must honor explicit TO_INVENTORY over the umbrella"
+assert "$TMP/gran.out.json" '(.relevance | length) == 10' \
+  "state-dir/granular: explicit TO_INVENTORY must win over TO_STATE_DIR umbrella"
 
 rm -rf "$TMP"
 echo "rank seam ok"

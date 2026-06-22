@@ -237,6 +237,98 @@ fi
 echo "  [ok] happy-path: no breadcrumb on clean exit"
 
 # ============================================================================
+# Cursor soft-deny cases (TO_HARNESS=cursor: fork at cursor-tool-optimizer)
+# ============================================================================
+# Resolve the Cursor fork path via the same remap the session-start seam uses.
+cursor_nudge_sh="$(printf '%s' "$here" | sed 's#/tool-optimizer/#/cursor-tool-optimizer/#')/nudge.sh"
+
+run_cursor_nudge() {
+  # $1 = tool_name, $2 = file_path
+  if [ "$1" = "Read" ]; then
+    printf '{"tool_name":"Read","tool_input":{"file_path":"%s"}}' "$2"
+  else
+    printf '{"tool_name":"%s","tool_input":{"file_path":"%s"}}' "$1" "$2"
+  fi | sh "$cursor_nudge_sh"
+}
+
+assert_cursor_deny() {
+  # $1 = output, $2 = label, $3 = expected fragment in agent_message (optional)
+  # Must be permission: deny + agent_message present + NO hookSpecificOutput
+  printf '%s' "$1" | jq -e '.permission=="deny"' >/dev/null 2>&1 \
+    || { echo "FAIL [$2]: expected permission:deny but got: $1"; fail=1; return; }
+  if ! printf '%s' "$1" | jq -e '.agent_message != null and (.agent_message | length) > 0' >/dev/null 2>&1; then
+    echo "FAIL [$2]: expected agent_message but got none"
+    fail=1
+  fi
+  if printf '%s' "$1" | jq -e '.hookSpecificOutput' >/dev/null 2>&1; then
+    echo "FAIL [$2]: hookSpecificOutput must NOT be present in Cursor envelope"
+    fail=1
+  fi
+  if [ -n "$3" ]; then
+    if ! printf '%s' "$1" | jq -e --arg frag "$3" '.agent_message | ascii_downcase | contains($frag)' >/dev/null 2>&1; then
+      echo "FAIL [$2]: agent_message does not contain '$3'"
+      fail=1
+    fi
+  fi
+}
+
+assert_cursor_allow() {
+  # $1 = output, $2 = label
+  # Must be permission: allow + no agent_message + NO hookSpecificOutput
+  printf '%s' "$1" | jq -e '.permission=="allow"' >/dev/null 2>&1 \
+    || { echo "FAIL [$2]: expected permission:allow but got: $1"; fail=1; return; }
+  if printf '%s' "$1" | jq -e '.agent_message != null and (.agent_message | length) > 0' >/dev/null 2>&1; then
+    echo "FAIL [$2]: expected no agent_message but got one"
+    fail=1
+  fi
+  if printf '%s' "$1" | jq -e '.hookSpecificOutput' >/dev/null 2>&1; then
+    echo "FAIL [$2]: hookSpecificOutput must NOT be present in Cursor envelope"
+    fail=1
+  fi
+}
+
+cursor_tmpdir=$(mktemp -d)
+# Re-register the EXIT trap to clean up BOTH temp dirs (a second `trap ... EXIT`
+# would override the first, leaking $tmpdir).
+trap 'rm -rf "$tmpdir" "$cursor_tmpdir"' EXIT
+cursor_seen="$cursor_tmpdir/cursor-seen.txt"
+export TO_NUDGE_SEEN="$cursor_seen"
+export TO_NUDGE="soft"
+
+# Case C1: first trigger touch → deny + agent_message (soft-deny branch)
+reset_seen
+out_c1=$(run_cursor_nudge "Read" "/data/report.csv")
+assert_cursor_deny "$out_c1" "cursor-csv-first-deny" "duckdb"
+echo "  [ok] cursor C1: first trigger touch → deny + agent_message"
+
+# Case C2: same path second touch → allow (once-per-path, no repeat deny)
+out_c2=$(run_cursor_nudge "Read" "/data/report.csv")
+assert_cursor_allow "$out_c2" "cursor-csv-second-allow"
+echo "  [ok] cursor C2: second touch of same path → allow (once-per-path)"
+
+# Case C3: non-trigger (.txt) → silent allow
+reset_seen
+out_c3=$(run_cursor_nudge "Read" "/src/notes.txt")
+assert_cursor_allow "$out_c3" "cursor-txt-no-trigger"
+echo "  [ok] cursor C3: non-trigger (.txt) → silent allow"
+
+# Case C4: TO_NUDGE=off on a trigger path → silent allow (nudge disabled)
+reset_seen
+out_c4=$(TO_NUDGE=off run_cursor_nudge "Read" "/data/sales.xlsx")
+assert_cursor_allow "$out_c4" "cursor-off-setting"
+echo "  [ok] cursor C4: nudge off → silent allow"
+
+# Validate hooks.json is still valid JSON and contains both hooks
+hooks_json="$(printf '%s' "$cursor_nudge_sh" | sed 's#/hooks/nudge\.sh#/hooks.json#')"
+jq empty "$hooks_json" 2>/dev/null \
+  || { echo "FAIL [cursor-hooks-json]: hooks.json is not valid JSON"; fail=1; }
+jq -e '.hooks.sessionStart' "$hooks_json" >/dev/null 2>&1 \
+  || { echo "FAIL [cursor-hooks-json]: sessionStart entry missing from hooks.json"; fail=1; }
+jq -e '.hooks.preToolUse' "$hooks_json" >/dev/null 2>&1 \
+  || { echo "FAIL [cursor-hooks-json]: preToolUse entry missing from hooks.json"; fail=1; }
+echo "  [ok] cursor hooks.json: valid JSON with both sessionStart and preToolUse entries"
+
+# ============================================================================
 # Summary
 # ============================================================================
 if [ "$fail" -eq 0 ]; then

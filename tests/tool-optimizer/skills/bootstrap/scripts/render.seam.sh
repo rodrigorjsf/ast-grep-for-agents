@@ -169,6 +169,57 @@ fi
 echo "  [ok] frontmatter case: settings preserved, body regenerated"
 
 # ============================================================================
+# Case 6: STATE-DIR CONTRACT — TO_STATE_DIR umbrella drives BOTH the inventory
+#   read path AND the render output path; granular vars still win.
+#   The cases above pin both via TO_INVENTORY/TO_RENDER_OUT, which does NOT
+#   exercise the defaults. Here both granular vars are UNSET and the script runs
+#   from a tmp CWD, so the derived defaults are observable and the worktree is
+#   never polluted.
+#     - TO_STATE_DIR unset   -> reads .claude/...json, writes .claude/...md (backward-compat).
+#     - TO_STATE_DIR=.cursor -> reads .cursor/...json, writes .cursor/...md  (Cursor port).
+# ============================================================================
+SD_CWD="$tmpdir/sd-cwd"
+
+# --- default (umbrella unset): seed inventory under .claude, expect .md under .claude ---
+mkdir -p "$SD_CWD/.claude"
+cp "$INVENTORY" "$SD_CWD/.claude/tool-optimizer.local.json"
+( cd "$SD_CWD" && env -u TO_INVENTORY -u TO_RENDER_OUT -u TO_STATE_DIR TO_NOW="2026-01-06T00:00:00Z" \
+    "$SH_BIN" "$RENDER_SH" ) \
+  || { echo "FAIL [state-dir/default]: render.sh exited non-zero with TO_STATE_DIR unset"; fail=1; }
+if [ ! -f "$SD_CWD/.claude/tool-optimizer.local.md" ]; then
+  echo "FAIL [state-dir/default]: render output must land under .claude/ (backward-compat)"; fail=1
+elif ! grep -q "Local tool policy (token-first)" "$SD_CWD/.claude/tool-optimizer.local.md"; then
+  echo "FAIL [state-dir/default]: rendered .claude block missing policy"; fail=1
+else
+  echo "  [ok] state-dir default: reads/writes under .claude with umbrella unset"
+fi
+
+# --- umbrella=.cursor: seed inventory under .cursor, expect .md under .cursor ---
+mkdir -p "$SD_CWD/.cursor"
+cp "$INVENTORY" "$SD_CWD/.cursor/tool-optimizer.local.json"
+( cd "$SD_CWD" && env -u TO_INVENTORY -u TO_RENDER_OUT TO_STATE_DIR=".cursor" TO_NOW="2026-01-06T00:00:00Z" \
+    "$SH_BIN" "$RENDER_SH" ) \
+  || { echo "FAIL [state-dir/cursor]: render.sh exited non-zero with TO_STATE_DIR=.cursor"; fail=1; }
+if [ ! -f "$SD_CWD/.cursor/tool-optimizer.local.md" ]; then
+  echo "FAIL [state-dir/cursor]: render output must land under .cursor/ when TO_STATE_DIR=.cursor"; fail=1
+elif ! grep -q "Local tool policy (token-first)" "$SD_CWD/.cursor/tool-optimizer.local.md"; then
+  echo "FAIL [state-dir/cursor]: rendered .cursor block missing policy"; fail=1
+else
+  echo "  [ok] state-dir cursor: reads/writes under .cursor with TO_STATE_DIR=.cursor"
+fi
+
+# --- granular wins: explicit TO_RENDER_OUT beats the umbrella ---
+GRAN_MD="$tmpdir/granular-render.md"
+( cd "$SD_CWD" && env -u TO_INVENTORY TO_STATE_DIR=".cursor" TO_RENDER_OUT="$GRAN_MD" TO_NOW="2026-01-06T00:00:00Z" \
+    "$SH_BIN" "$RENDER_SH" ) \
+  || { echo "FAIL [state-dir/granular]: render.sh exited non-zero with TO_RENDER_OUT + TO_STATE_DIR"; fail=1; }
+if [ ! -f "$GRAN_MD" ]; then
+  echo "FAIL [state-dir/granular]: granular TO_RENDER_OUT must win over TO_STATE_DIR umbrella"; fail=1
+else
+  echo "  [ok] state-dir granular: explicit TO_RENDER_OUT wins over umbrella"
+fi
+
+# ============================================================================
 # Summary
 # ============================================================================
 if [ "$fail" -eq 0 ]; then
