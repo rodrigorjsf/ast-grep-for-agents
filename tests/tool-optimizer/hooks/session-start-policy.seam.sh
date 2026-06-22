@@ -186,6 +186,106 @@ fi
 echo "  [ok] ac2 absent breadcrumb: no pointer injected (clean path)"
 
 # ============================================================================
+# Cursor hook seam cases
+# ============================================================================
+# Resolve cursor hook path: same worktree, different plugin dir.
+cursor_hook="$(printf '%s' "$here" | sed 's#/tool-optimizer/#/cursor-tool-optimizer/#')/session-start-policy.sh"
+
+# Case C1: absent .cursor/...local.md → static Policy emitted, envelope is
+#           additional_context (NOT hookSpecificOutput), env is {}
+c1_absent="$tmpdir/c1_nonexistent.md"
+c1_crumb="$tmpdir/c1.breadcrumb"
+out_c1=$(TO_LOCAL_MD="$c1_absent" TO_BREADCRUMB="$c1_crumb" sh "$cursor_hook") \
+  || { echo "FAIL [cursor-fallback]: cursor hook exited non-zero"; fail=1; }
+
+printf '%s' "$out_c1" | jq empty 2>/dev/null \
+  || { echo "FAIL [cursor-fallback]: stdout is not valid JSON"; fail=1; }
+
+# Must NOT have hookSpecificOutput (Claude envelope)
+if printf '%s' "$out_c1" | jq -e '.hookSpecificOutput' >/dev/null 2>&1; then
+  echo "FAIL [cursor-fallback]: hookSpecificOutput key must NOT be present in Cursor envelope"
+  fail=1
+fi
+
+# Must have additional_context at top level
+printf '%s' "$out_c1" | jq -er '.additional_context' >/dev/null 2>&1 \
+  || { echo "FAIL [cursor-fallback]: additional_context key missing from Cursor envelope"; fail=1; }
+
+# Must have env key
+printf '%s' "$out_c1" | jq -er '.env' >/dev/null 2>&1 \
+  || { echo "FAIL [cursor-fallback]: env key missing from Cursor envelope"; fail=1; }
+
+# Static Policy must be present in additional_context
+printf '%s' "$out_c1" | jq -er '.additional_context | contains("Local tool policy (token-first)")' >/dev/null \
+  || { echo "FAIL [cursor-fallback]: policy title missing from additional_context"; fail=1; }
+
+printf '%s' "$out_c1" | jq -er '.additional_context | contains("novelty is never the reason")' >/dev/null \
+  || { echo "FAIL [cursor-fallback]: policy tail missing from additional_context"; fail=1; }
+
+printf '%s' "$out_c1" | jq -er '.additional_context | contains("report-error")' >/dev/null \
+  || { echo "FAIL [cursor-fallback]: self-report clause missing from additional_context"; fail=1; }
+
+echo "  [ok] cursor C1: absent local.md → static Policy in additional_context (no hookSpecificOutput)"
+
+# Case C2: seeded breadcrumb → pending-defect pointer folded into additional_context
+c2_crumb="$tmpdir/c2.breadcrumb"
+printf 'hooks/session-start-policy.sh#1\n' > "$c2_crumb"
+c2_absent="$tmpdir/c2_nonexistent.md"
+out_c2=$(TO_LOCAL_MD="$c2_absent" TO_BREADCRUMB="$c2_crumb" sh "$cursor_hook") \
+  || { echo "FAIL [cursor-breadcrumb]: cursor hook exited non-zero"; fail=1; }
+
+printf '%s' "$out_c2" | jq empty 2>/dev/null \
+  || { echo "FAIL [cursor-breadcrumb]: stdout is not valid JSON"; fail=1; }
+
+printf '%s' "$out_c2" | jq -er '.additional_context | contains("pending hook defect")' >/dev/null \
+  || { echo "FAIL [cursor-breadcrumb]: pending-defect phrase not found in additional_context"; fail=1; }
+
+printf '%s' "$out_c2" | jq -er '.additional_context | contains("report-error")' >/dev/null \
+  || { echo "FAIL [cursor-breadcrumb]: report-error pointer missing from additional_context"; fail=1; }
+
+echo "  [ok] cursor C2: seeded breadcrumb → pending-defect pointer in additional_context"
+
+# Case C3: inventory present (via TO_STATE_DIR) → injected in additional_context
+# Use TO_STATE_DIR so the hook derives LOCAL_MD automatically from the state dir.
+c3_state="$tmpdir/c3_state"
+mkdir -p "$c3_state"
+c3_crumb="$tmpdir/c3.breadcrumb"
+cat > "$c3_state/tool-optimizer.local.md" <<'ENDMD'
+## Local tool policy (token-first) — extends the code-search policy
+
+### Available tools on this machine
+
+- ripgrep
+- ast-grep
+- jq
+
+### Preference order & guardrails
+
+Guardrail: a non-standard tool must beat the standard tool (Read/Grep/rg) for THIS task on
+tokens or capability — novelty is never the reason. No standard tool is deny-listed.
+ENDMD
+
+out_c3=$(TO_STATE_DIR="$c3_state" TO_BREADCRUMB="$c3_crumb" sh "$cursor_hook") \
+  || { echo "FAIL [cursor-inventory]: cursor hook exited non-zero"; fail=1; }
+
+printf '%s' "$out_c3" | jq empty 2>/dev/null \
+  || { echo "FAIL [cursor-inventory]: stdout is not valid JSON"; fail=1; }
+
+printf '%s' "$out_c3" | jq -er '.additional_context | contains("ast-grep")' >/dev/null \
+  || { echo "FAIL [cursor-inventory]: tool name missing from additional_context"; fail=1; }
+
+printf '%s' "$out_c3" | jq -er '.additional_context | contains("ripgrep")' >/dev/null \
+  || { echo "FAIL [cursor-inventory]: ripgrep missing from additional_context"; fail=1; }
+
+# Must NOT have hookSpecificOutput
+if printf '%s' "$out_c3" | jq -e '.hookSpecificOutput' >/dev/null 2>&1; then
+  echo "FAIL [cursor-inventory]: hookSpecificOutput key must NOT be present in Cursor envelope"
+  fail=1
+fi
+
+echo "  [ok] cursor C3: TO_STATE_DIR inventory injected into additional_context"
+
+# ============================================================================
 # Summary
 # ============================================================================
 if [ "$fail" -eq 0 ]; then
