@@ -96,3 +96,83 @@ could not be confirmed against a live Cursor runtime during development. The sea
 (`tests/tool-optimizer/hooks/session-start-policy.seam.sh`) asserts the envelope shape
 programmatically; this manual check closes the remaining gap by running the hook in the
 actual Cursor process.
+
+## preToolUse Nudge hook
+
+The `hooks/nudge.sh` script fires before every Read tool call and redirects the agent
+toward a cheaper specialized tool when the file matches a known expensive pattern
+(tabular data, PDFs, Office docs, or a file larger than 100 KB).
+
+### Soft-deny behavior
+
+The hook implements the **soft-deny branch** from ADR-0010: the first time a matching
+file path is seen in the session, the hook **denies the Read** and emits an
+`agent_message` pointing at the cheaper tool (DuckDB/qsv for tabular data, the pdf
+skill for PDFs, markitdown for Office docs, ripgrep for large files). The second time
+the same path is seen, the hook allows silently (once-per-path — no repeat deny).
+Non-triggering reads and reads on non-matching extensions always get a silent allow.
+
+This is a **gate** (blocks the first Read) rather than a pure guide. The ADR-0010
+rationale is that blocking the one wasteful call preserves the Nudge's actual value.
+The "never blocks" property from the Claude Code variant does **not** carry over to
+this Cursor fork — this asymmetry is documented in ADR-0010.
+
+### Output envelope
+
+```json
+{ "permission": "deny", "agent_message": "<redirect message>" }
+```
+
+for a first trigger touch, and:
+
+```json
+{ "permission": "allow" }
+```
+
+for a second touch of the same path, a non-trigger, or when nudge is disabled.
+
+`[sourced — unverified]`: the `preToolUse` output envelope and the behavior of
+`agent_message` on deny vs. allow are cited from `cursor.com/docs/hooks` (2026-06-21).
+A real Cursor runtime is required to confirm this schema.
+
+### Tuning / disabling
+
+Set `TO_NUDGE=off` (or write `nudge: off` in the bootstrap settings, which the render
+script forwards as an env variable) to suppress all nudges. The default is `soft`.
+
+### MANUAL CHECK 5 — (a) spike: does `agent_message` fire on `permission: "allow"`?
+
+**Prerequisite:** a live Cursor runtime with the plugin installed.
+
+This is the deferred spike from ADR-0010 decision point 1. If it turns out that
+`agent_message` is also delivered to the agent when `permission: "allow"` (not just on
+deny), the hook should be updated to use `allow` + `agent_message` instead of `deny` +
+`agent_message` for the first trigger touch — that would make the Nudge non-blocking.
+
+1. Write a temporary preToolUse hook that emits
+   `{"permission":"allow","agent_message":"NUDGE-TEST-PROBE"}` for any Read.
+2. Open a project in Cursor where the plugin is installed.
+3. Trigger a Read tool call (ask the model to read any file).
+4. Check whether the model received or acknowledged the `NUDGE-TEST-PROBE` string.
+5. **If yes:** update `hooks/nudge.sh` to use `allow` instead of `deny` on first
+   trigger touch (non-blocking nudge). Update this README and ADR-0010 accordingly.
+6. **If no:** the soft-deny branch is correct as implemented. No change needed.
+
+`[sourced — unverified]`: ADR-0010 §Decision, 2026-06-21.
+
+### MANUAL CHECK 6 — (b) preToolUse envelope re-verification
+
+**Prerequisite:** a live Cursor runtime.
+
+The `{ "permission": "...", "agent_message": "..." }` preToolUse output envelope was
+cited from `cursor.com/docs/hooks` (2026-06-21) and has not been confirmed against a
+live Cursor runtime. Run the hook in real Cursor and verify:
+
+1. That `permission: "deny"` actually blocks the Read tool call.
+2. That `agent_message` is shown to / received by the agent when the call is denied.
+3. That `permission: "allow"` (second touch or non-trigger) lets the Read proceed.
+
+If the field names differ from the above, update `deny_with_msg` and `allow_silent`
+in `hooks/nudge.sh` and re-run the seam tests.
+
+`[sourced — unverified]`: cursor.com/docs/hooks, 2026-06-21.
