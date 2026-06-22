@@ -137,5 +137,91 @@ jq -e '.mcpServers["ast-grep"]' "$MCP" >/dev/null \
   || fail "case11: project 'mcp: on' must win over global 'mcp: off'"
 echo "  [ok] resolution: project frontmatter wins over global"
 
+# ============================================================================
+# Case 12: STATE-DIR CONTRACT — TO_STATE_DIR drives the PROJECT_SETTINGS default
+#   (where `mcp:` is read from), but does NOT move PROJECT_MCP. The cases above
+#   pin PROJECT_SETTINGS, which does NOT exercise its default. Here PROJECT_SETTINGS
+#   and TO_MCP_SETTING are UNSET and mount runs from a tmp CWD, so the derived
+#   PROJECT_SETTINGS default is observable. GLOBAL_SETTINGS is pointed at a tmp
+#   nonexistent path so the test never reads the real $HOME. PROJECT_MCP is always
+#   pinned into the tmpdir so nothing touches the worktree's .mcp.json.
+#     - TO_STATE_DIR unset   -> reads mcp from .claude/tool-optimizer.local.md (backward-compat).
+#     - TO_STATE_DIR=.cursor -> reads mcp from .cursor/tool-optimizer.local.md  (Cursor port).
+# ============================================================================
+SD_CWD="$tmpdir/sd-cwd"
+NO_GLOBAL_MD="$tmpdir/no_such_global.md"   # nonexistent -> read_frontmatter_scalar returns nothing
+SD_MCP="$tmpdir/sd.mcp.json"
+
+# --- default (umbrella unset): seed `mcp: on` under .claude -> server mounts ---
+mkdir -p "$SD_CWD/.claude"
+printf '%s\n' '---' 'mcp: on' '---' '## body' > "$SD_CWD/.claude/tool-optimizer.local.md"
+rm -f "$SD_MCP"
+( cd "$SD_CWD" && env -u TO_MCP_SETTING -u PROJECT_SETTINGS -u TO_STATE_DIR \
+    GLOBAL_SETTINGS="$NO_GLOBAL_MD" PROJECT_MCP="$SD_MCP" "$SH_BIN" "$MOUNT_SH" ) \
+  || fail "state-dir/default: mount_mcp.sh exited non-zero with TO_STATE_DIR unset"
+jq -e '.mcpServers["ast-grep"].command == "uvx"' "$SD_MCP" >/dev/null \
+  || fail "state-dir/default: 'mcp: on' in the .claude default settings must mount the server"
+echo "  [ok] state-dir default: PROJECT_SETTINGS resolves under .claude with umbrella unset"
+
+# --- umbrella=.cursor: seed `mcp: on` under .cursor -> server mounts ---
+mkdir -p "$SD_CWD/.cursor"
+printf '%s\n' '---' 'mcp: on' '---' '## body' > "$SD_CWD/.cursor/tool-optimizer.local.md"
+# Make the .claude default mcp:off so a mount can ONLY come from the .cursor file.
+printf '%s\n' '---' 'mcp: off' '---' '## body' > "$SD_CWD/.claude/tool-optimizer.local.md"
+rm -f "$SD_MCP"
+( cd "$SD_CWD" && env -u TO_MCP_SETTING -u PROJECT_SETTINGS TO_STATE_DIR=".cursor" \
+    GLOBAL_SETTINGS="$NO_GLOBAL_MD" PROJECT_MCP="$SD_MCP" "$SH_BIN" "$MOUNT_SH" ) \
+  || fail "state-dir/cursor: mount_mcp.sh exited non-zero with TO_STATE_DIR=.cursor"
+jq -e '.mcpServers["ast-grep"].command == "uvx"' "$SD_MCP" >/dev/null \
+  || fail "state-dir/cursor: 'mcp: on' in the .cursor default settings must mount the server"
+echo "  [ok] state-dir cursor: PROJECT_SETTINGS resolves under .cursor with TO_STATE_DIR=.cursor"
+
+# --- granular wins: explicit PROJECT_SETTINGS beats the umbrella ---
+GRAN_MD="$tmpdir/granular-settings.md"
+printf '%s\n' '---' 'mcp: on' '---' '## body' > "$GRAN_MD"
+# .cursor default is mcp:off, so a mount proves the explicit PROJECT_SETTINGS won.
+printf '%s\n' '---' 'mcp: off' '---' '## body' > "$SD_CWD/.cursor/tool-optimizer.local.md"
+rm -f "$SD_MCP"
+( cd "$SD_CWD" && env -u TO_MCP_SETTING TO_STATE_DIR=".cursor" PROJECT_SETTINGS="$GRAN_MD" \
+    GLOBAL_SETTINGS="$NO_GLOBAL_MD" PROJECT_MCP="$SD_MCP" "$SH_BIN" "$MOUNT_SH" ) \
+  || fail "state-dir/granular: mount_mcp.sh exited non-zero with PROJECT_SETTINGS + TO_STATE_DIR"
+jq -e '.mcpServers["ast-grep"].command == "uvx"' "$SD_MCP" >/dev/null \
+  || fail "state-dir/granular: explicit PROJECT_SETTINGS must win over the .cursor umbrella default"
+echo "  [ok] state-dir granular: explicit PROJECT_SETTINGS wins over umbrella"
+
+# ============================================================================
+# Case 13: PROJECT_MCP is a path MOVE (TO_MCP_CONFIG), NOT a .claude->.cursor swap.
+#   TO_STATE_DIR=.cursor must NOT move the MCP config default — it stays .mcp.json
+#   at the repo root (per ADR-0009 the Cursor host sets TO_MCP_CONFIG explicitly).
+#   This guards against a naive ${STATE_DIR}/mcp.json prefix.
+# ============================================================================
+SD_MCP_CWD="$tmpdir/sd-mcp-cwd"
+mkdir -p "$SD_MCP_CWD"
+( cd "$SD_MCP_CWD" && env -u PROJECT_MCP -u TO_MCP_CONFIG TO_STATE_DIR=".cursor" \
+    TO_MCP_SETTING=on "$SH_BIN" "$MOUNT_SH" ) \
+  || fail "case13: mount_mcp.sh exited non-zero (default MCP path, TO_STATE_DIR=.cursor)"
+[ -f "$SD_MCP_CWD/.mcp.json" ] \
+  || fail "case13: TO_STATE_DIR=.cursor must NOT move the MCP config — it must stay .mcp.json at root"
+[ ! -e "$SD_MCP_CWD/.cursor/mcp.json" ] \
+  || fail "case13: TO_STATE_DIR must NOT prefix the MCP config into .cursor/ (path MOVE, not swap)"
+echo "  [ok] case13: TO_STATE_DIR does NOT move PROJECT_MCP default (stays .mcp.json)"
+
+# --- TO_MCP_CONFIG performs the explicit path MOVE (Cursor host sets it) ---
+MOVED_MCP="$tmpdir/moved/mcp.json"
+rm -rf "$tmpdir/moved"
+env TO_MCP_CONFIG="$MOVED_MCP" TO_MCP_SETTING=on "$SH_BIN" "$MOUNT_SH" \
+  || fail "case13: mount_mcp.sh exited non-zero with TO_MCP_CONFIG move"
+jq -e '.mcpServers["ast-grep"].command == "uvx"' "$MOVED_MCP" >/dev/null \
+  || fail "case13: TO_MCP_CONFIG must write the MCP config to the moved path"
+# PROJECT_MCP wins over TO_MCP_CONFIG when both are set (most-specific alias).
+ALIAS_MCP="$tmpdir/alias.mcp.json"
+rm -f "$ALIAS_MCP"
+env PROJECT_MCP="$ALIAS_MCP" TO_MCP_CONFIG="$tmpdir/should-not-be-used.json" TO_MCP_SETTING=on \
+  "$SH_BIN" "$MOUNT_SH" \
+  || fail "case13: mount_mcp.sh exited non-zero with PROJECT_MCP + TO_MCP_CONFIG"
+[ -f "$ALIAS_MCP" ] || fail "case13: PROJECT_MCP must win over TO_MCP_CONFIG when both set"
+[ ! -e "$tmpdir/should-not-be-used.json" ] || fail "case13: TO_MCP_CONFIG must NOT be used when PROJECT_MCP is set"
+echo "  [ok] case13: TO_MCP_CONFIG moves the MCP config; PROJECT_MCP alias wins when both set"
+
 echo "mount_mcp seam ok"
 exit 0

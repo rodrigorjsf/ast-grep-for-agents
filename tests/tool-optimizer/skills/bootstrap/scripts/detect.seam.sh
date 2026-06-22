@@ -165,6 +165,36 @@ fi
 diff "$OUT1" "$OUT2" \
   || fail "two runs with same TO_NOW produced different output (not deterministic)"
 
+# ============================================================================
+# State-dir contract (TO_STATE_DIR umbrella; granular TO_OUTPUT still wins).
+#   The seam above pins paths via TO_OUTPUT, which does NOT exercise the default.
+#   These cases run with TO_OUTPUT UNSET from a tmp CWD, so the derived default
+#   is observable AND the worktree is never polluted.
+#   - TO_STATE_DIR unset  -> default lands under .claude  (Claude backward-compat).
+#   - TO_STATE_DIR=.cursor -> default lands under .cursor (Cursor port).
+# ============================================================================
+SD_CWD="$TMPDIR_TEST/cwd"
+mkdir -p "$SD_CWD"
+
+# Default (umbrella unset) -> .claude/tool-optimizer.local.json under CWD.
+( cd "$SD_CWD" && env -u TO_OUTPUT -u TO_STATE_DIR PATH="$SEAM_PATH" TO_NOW="$PINNED_NOW" "$SH_BIN" "$DETECT" ) \
+  || fail "detect.sh exited non-zero with TO_STATE_DIR unset (default path)"
+[ -f "$SD_CWD/.claude/tool-optimizer.local.json" ] \
+  || fail "TO_STATE_DIR unset: default output must land under .claude/"
+
+# Umbrella=.cursor -> .cursor/tool-optimizer.local.json under CWD.
+( cd "$SD_CWD" && env -u TO_OUTPUT PATH="$SEAM_PATH" TO_STATE_DIR=".cursor" TO_NOW="$PINNED_NOW" "$SH_BIN" "$DETECT" ) \
+  || fail "detect.sh exited non-zero with TO_STATE_DIR=.cursor"
+[ -f "$SD_CWD/.cursor/tool-optimizer.local.json" ] \
+  || fail "TO_STATE_DIR=.cursor: default output must land under .cursor/"
+
+# Granular TO_OUTPUT wins even when TO_STATE_DIR is set (granular beats umbrella).
+GRAN_OUT="$TMPDIR_TEST/granular.json"
+( cd "$SD_CWD" && env PATH="$SEAM_PATH" TO_STATE_DIR=".cursor" TO_OUTPUT="$GRAN_OUT" TO_NOW="$PINNED_NOW" "$SH_BIN" "$DETECT" ) \
+  || fail "detect.sh exited non-zero with TO_OUTPUT + TO_STATE_DIR both set"
+[ -f "$GRAN_OUT" ] \
+  || fail "granular TO_OUTPUT must win over TO_STATE_DIR umbrella"
+
 # Cleanup.
 rm -rf "$TMPDIR_TEST"
 
