@@ -16,7 +16,7 @@
 #       "are the docs internally consistent and honestly labelled?" gate.
 # HOW:  python3 scripts/check-docs.py        (run from repo root)
 #       exit 0 = clean; exit 1 = problems printed to stdout.
-import os, re, sys, glob
+import os, re, sys, glob, subprocess
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
@@ -79,8 +79,32 @@ def main() -> int:
             print(f"\n{len(items)} {label}:")
             for it in sorted(set(items)):
                 print("  ", it)
+
+    # --- Cursor single-source byte-identity drift gate ---
+    # The drift gate is the SOLE CI entrypoint for the single-source contract: check-docs.py
+    # shells out to it rather than reimplementing the byte-compare. A non-zero exit (a synced
+    # Cursor copy diverged from its tool-optimizer/ source) fails the docs check too.
+    if not run_cursor_drift_gate():
+        ok = False
+
     print("docs check: OK" if ok else "\ndocs check: FAILED")
     return 0 if ok else 1
+
+
+def run_cursor_drift_gate() -> bool:
+    """Shell out to the byte-identity drift gate. Returns True iff it exits 0."""
+    gate = os.path.join(ROOT, "scripts", "check-cursor-drift.sh")
+    if not os.path.exists(gate):
+        print(f"\ncursor drift gate missing: {gate}")
+        return False
+    proc = subprocess.run(["sh", gate], capture_output=True, text=True)
+    out = (proc.stdout or "") + (proc.stderr or "")
+    if proc.returncode != 0:
+        print("\ncursor single-source drift gate FAILED:")
+        for line in out.strip().splitlines():
+            print("  ", line)
+        return False
+    return True
 
 
 def check_cursor_policy_mdc() -> list:

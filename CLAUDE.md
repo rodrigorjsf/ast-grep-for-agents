@@ -44,6 +44,8 @@ Every script carries a `WHAT / WHY / WHEN / HOW` header comment; read it before 
 | [`bench-tabular.sh`](scripts/bench-tabular.sh) | to measure DuckDB/qsv "query-don't-load" savings on a generated 100k-row CSV (+ a small XLSX) |
 | [`bench-docs.sh`](scripts/bench-docs.sh) | to measure MarkItDown doc→Markdown size + table fidelity on generated docx/pptx/xlsx/pdf fixtures |
 | [`semgrep-taint-demo.sh`](scripts/semgrep-taint-demo.sh) | to (re)confirm the Semgrep taint capability (1 finding on the unsanitized path, 0 on the sanitized control) |
+| [`sync-cursor-plugin.sh`](scripts/sync-cursor-plugin.sh) | after editing any of the 10 harness-agnostic `tool-optimizer/` scripts — re-copies them byte-identically into `cursor-tool-optimizer/` (single source + committed copies) |
+| [`check-cursor-drift.sh`](scripts/check-cursor-drift.sh) | to assert byte-identity (`cmp -s`) of every synced Cursor copy vs its `tool-optimizer/` source; the sole CI entrypoint for the single-source contract (`check-docs.py` shells out to it) |
 
 **Standing rule — export repeatable procedures.** Whenever you hit a multi-step procedure that is
 deterministic and likely to recur (release, registry verification, a gating/render check, an

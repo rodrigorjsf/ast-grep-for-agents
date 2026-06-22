@@ -156,5 +156,70 @@ fi
 
 echo "  [ok] stdout mode: output written to stdout when TO_RESOLVE_OUT unset"
 
+# ============================================================================
+# Case 5: STATE-DIR CONTRACT — TO_STATE_DIR drives the PROJECT_CONFIG default
+#   (the global scope is HOME-rooted and intentionally NOT state-dir'd). The
+#   cases above pin PROJECT_CONFIG, which does NOT exercise the default. Here
+#   PROJECT_CONFIG is UNSET and resolve runs from a tmp CWD, so the derived
+#   default is observable and the worktree is never polluted. GLOBAL_CONFIG is
+#   pointed at a tmp nonexistent path so the test never reads the real $HOME.
+#     - TO_STATE_DIR unset   -> reads .claude/tool-optimizer.local.json (backward-compat).
+#     - TO_STATE_DIR=.cursor -> reads .cursor/tool-optimizer.local.json  (Cursor port).
+# ============================================================================
+SD_CWD="$tmpdir/sd-cwd"
+NO_GLOBAL="$tmpdir/no_such_global_sd.json"   # nonexistent -> resolve treats as {}
+
+# --- default (umbrella unset): seed project config under .claude ---
+mkdir -p "$SD_CWD/.claude"
+cat > "$SD_CWD/.claude/tool-optimizer.local.json" <<'ENDJSON'
+{ "claude_default_marker": "from_claude_default" }
+ENDJSON
+SD_DEFAULT=$( cd "$SD_CWD" && env -u PROJECT_CONFIG -u TO_STATE_DIR GLOBAL_CONFIG="$NO_GLOBAL" \
+  "$SH_BIN" "$RESOLVE_SH" ) \
+  || fail "state-dir/default: resolve.sh exited non-zero with TO_STATE_DIR unset"
+if [ -n "$JQ_BIN" ]; then
+  printf '%s' "$SD_DEFAULT" | "$JQ_BIN" -er '.claude_default_marker == "from_claude_default"' >/dev/null \
+    || fail "state-dir/default: PROJECT_CONFIG default must resolve under .claude"
+else
+  printf '%s' "$SD_DEFAULT" | grep -q '"claude_default_marker": "from_claude_default"' \
+    || fail "state-dir/default: PROJECT_CONFIG default must resolve under .claude (grep fallback)"
+fi
+echo "  [ok] state-dir default: PROJECT_CONFIG resolves under .claude with umbrella unset"
+
+# --- umbrella=.cursor: seed project config under .cursor ---
+mkdir -p "$SD_CWD/.cursor"
+cat > "$SD_CWD/.cursor/tool-optimizer.local.json" <<'ENDJSON'
+{ "cursor_default_marker": "from_cursor_default" }
+ENDJSON
+SD_CURSOR=$( cd "$SD_CWD" && env -u PROJECT_CONFIG TO_STATE_DIR=".cursor" GLOBAL_CONFIG="$NO_GLOBAL" \
+  "$SH_BIN" "$RESOLVE_SH" ) \
+  || fail "state-dir/cursor: resolve.sh exited non-zero with TO_STATE_DIR=.cursor"
+if [ -n "$JQ_BIN" ]; then
+  printf '%s' "$SD_CURSOR" | "$JQ_BIN" -er '.cursor_default_marker == "from_cursor_default"' >/dev/null \
+    || fail "state-dir/cursor: PROJECT_CONFIG default must resolve under .cursor"
+else
+  printf '%s' "$SD_CURSOR" | grep -q '"cursor_default_marker": "from_cursor_default"' \
+    || fail "state-dir/cursor: PROJECT_CONFIG default must resolve under .cursor (grep fallback)"
+fi
+echo "  [ok] state-dir cursor: PROJECT_CONFIG resolves under .cursor with TO_STATE_DIR=.cursor"
+
+# --- granular wins: explicit PROJECT_CONFIG beats the umbrella ---
+cat > "$tmpdir/granular_project.json" <<'ENDJSON'
+{ "granular_marker": "from_granular" }
+ENDJSON
+SD_GRAN=$( cd "$SD_CWD" && env TO_STATE_DIR=".cursor" PROJECT_CONFIG="$tmpdir/granular_project.json" \
+  GLOBAL_CONFIG="$NO_GLOBAL" "$SH_BIN" "$RESOLVE_SH" ) \
+  || fail "state-dir/granular: resolve.sh exited non-zero with PROJECT_CONFIG + TO_STATE_DIR"
+if [ -n "$JQ_BIN" ]; then
+  printf '%s' "$SD_GRAN" | "$JQ_BIN" -er '.granular_marker == "from_granular"' >/dev/null \
+    || fail "state-dir/granular: explicit PROJECT_CONFIG must win over TO_STATE_DIR umbrella"
+  printf '%s' "$SD_GRAN" | "$JQ_BIN" -er 'has("cursor_default_marker") | not' >/dev/null \
+    || fail "state-dir/granular: umbrella default must NOT leak when PROJECT_CONFIG is explicit"
+else
+  printf '%s' "$SD_GRAN" | grep -q '"granular_marker": "from_granular"' \
+    || fail "state-dir/granular: explicit PROJECT_CONFIG must win (grep fallback)"
+fi
+echo "  [ok] state-dir granular: explicit PROJECT_CONFIG wins over umbrella"
+
 echo "resolve seam ok"
 exit 0
