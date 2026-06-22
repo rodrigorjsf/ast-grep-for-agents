@@ -5,5 +5,17 @@
   "author": {
     "name": "Rodrigo França",
     "email": "rodrigo_rjsf@hotmail.com"
-  }
+  },
+  "skills": [
+    {
+      "name": "bootstrap",
+      "path": "skills/bootstrap/SKILL.md"
+    }
+  ],
+  "commands": [
+    {
+      "name": "bootstrap",
+      "path": "commands/bootstrap.md"
+    }
+  ]
 }
