@@ -1,0 +1,9 @@
+{
+  "plugins": [
+    {
+      "name": "cursor-tool-optimizer",
+      "path": "cursor-tool-optimizer",
+      "description": "Token-first tool policy delivered as a native Cursor Rule (always-applied). Guides the agent to pick the cheapest tool that fits the task shape."
+    }
+  ]
+}

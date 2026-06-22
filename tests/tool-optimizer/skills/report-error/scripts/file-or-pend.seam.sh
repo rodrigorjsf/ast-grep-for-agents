@@ -234,6 +234,51 @@ else
 fi
 
 # ============================================================================
+# Case 6: STATE-DIR CONTRACT — TO_STATE_DIR drives the PEND_FILE default; granular
+#   TO_FOP_PEND still wins. The cases above pin TO_FOP_PEND, which does NOT exercise
+#   the default. Here TO_FOP_PEND is UNSET and file-or-pend runs from a tmp CWD with
+#   gh forced MISSING (the pended path), so the derived default is observable and the
+#   worktree is never polluted.
+#     - TO_STATE_DIR unset   -> appends to .claude/tool-optimizer.pending-reports.jsonl.
+#     - TO_STATE_DIR=.cursor -> appends to .cursor/tool-optimizer.pending-reports.jsonl.
+# ============================================================================
+SD_CWD="$tmpdir/sd-cwd"
+mkdir -p "$SD_CWD"
+
+# --- default (umbrella unset) -> .claude/...pending-reports.jsonl under CWD ---
+SDTOK=$( cd "$SD_CWD" && env -u TO_FOP_PEND -u TO_STATE_DIR \
+    TO_FOP_STRUCT="$STRUCT" TO_GH_BIN="__gh_does_not_exist_seam__" "$SH_BIN" "$FILE_OR_PEND_SH" ) \
+  || { echo "FAIL [state-dir/default]: file-or-pend.sh exited non-zero (must always exit 0)"; fail=1; }
+if [ "$SDTOK" != "pended" ]; then
+  echo "FAIL [state-dir/default]: expected 'pended', got '$SDTOK'"; fail=1
+elif [ ! -s "$SD_CWD/.claude/tool-optimizer.pending-reports.jsonl" ]; then
+  echo "FAIL [state-dir/default]: pending file must land under .claude/ (backward-compat)"; fail=1
+else
+  echo "  [ok] state-dir default: pending file under .claude with umbrella unset"
+fi
+
+# --- umbrella=.cursor -> .cursor/...pending-reports.jsonl under CWD ---
+SDTOK2=$( cd "$SD_CWD" && env -u TO_FOP_PEND TO_STATE_DIR=".cursor" \
+    TO_FOP_STRUCT="$STRUCT" TO_GH_BIN="__gh_does_not_exist_seam__" "$SH_BIN" "$FILE_OR_PEND_SH" ) \
+  || { echo "FAIL [state-dir/cursor]: file-or-pend.sh exited non-zero"; fail=1; }
+if [ ! -s "$SD_CWD/.cursor/tool-optimizer.pending-reports.jsonl" ]; then
+  echo "FAIL [state-dir/cursor]: pending file must land under .cursor/ when TO_STATE_DIR=.cursor"; fail=1
+else
+  echo "  [ok] state-dir cursor: pending file under .cursor with TO_STATE_DIR=.cursor"
+fi
+
+# --- granular wins: explicit TO_FOP_PEND beats the umbrella ---
+GRAN_PEND="$tmpdir/granular-pend.jsonl"
+env -u TO_STATE_DIR TO_STATE_DIR=".cursor" TO_FOP_PEND="$GRAN_PEND" \
+  TO_FOP_STRUCT="$STRUCT" TO_GH_BIN="__gh_does_not_exist_seam__" "$SH_BIN" "$FILE_OR_PEND_SH" >/dev/null \
+  || { echo "FAIL [state-dir/granular]: file-or-pend.sh exited non-zero"; fail=1; }
+if [ ! -s "$GRAN_PEND" ]; then
+  echo "FAIL [state-dir/granular]: explicit TO_FOP_PEND must win over TO_STATE_DIR umbrella"; fail=1
+else
+  echo "  [ok] state-dir granular: explicit TO_FOP_PEND wins over umbrella"
+fi
+
+# ============================================================================
 # Summary
 # ============================================================================
 if [ "$fail" -eq 0 ]; then

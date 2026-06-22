@@ -1,0 +1,29 @@
+---
+description: Token-first tool policy — always-applied standing context for the cursor-tool-optimizer plugin.
+alwaysApply: true
+---
+
+## Local tool policy (token-first) — extends the code-search policy
+
+Before reading or searching, pick by the SHAPE of the task:
+- Literal / regex / identifier across a tree -> ripgrep (`rg`, add `--json` to parse fields).
+- Syntax-aware search/rewrite in one language -> ast-grep. Need taint/dataflow or a CWE rule
+  registry -> semgrep. (Type-aware cross-file refactor -> IDE/OpenRewrite, not these.)
+- Pack a tree/file-set into context -> repomix (whole repo, structured XML/MD) or
+  files-to-prompt (an explicit file subset, `--cxml`). Do NOT cat whole files in.
+- A PDF -> the pdf skill. A docx/pptx/xlsx/html/epub -> markitdown. Never paste a binary doc raw.
+- A CSV/Excel you won't fully consume -> query it: `duckdb -c "SELECT ... FROM 'f.csv'"`
+  (or qsv for quick stats). Reading the whole file is the thing to avoid.
+- "Where is X defined / used?" on a large repo -> consult the ctags index before re-scanning.
+- "Did I/we already see this?" -> claude-mem (cross-session). Verbose command output -> RTK.
+
+Guardrail: a non-standard tool must beat the standard tool (Read/Grep/rg) for THIS task on
+tokens or capability — novelty is never the reason. No standard tool is deny-listed.
+
+Self-report: if a tool-optimizer Bootstrap script is GENUINELY defective — it crashes
+unexpectedly or emits clearly garbage output — invoke the `report-error` skill. It files ONE
+sanitized issue on the plugin's upstream tracker (rodrigorjsf/ast-grep-for-agents), carrying
+only allowlisted facts (OS class, plugin version, package-manager set, the scrubbed error) and
+a synthetic reproduction — never your paths, code, data, secrets, or repo name. An EXPECTED
+outcome (a documented no-match exit, an expected empty result, a genuinely missing tool you
+degrade around, or a declined consented install) is NOT a defect — do not report it.

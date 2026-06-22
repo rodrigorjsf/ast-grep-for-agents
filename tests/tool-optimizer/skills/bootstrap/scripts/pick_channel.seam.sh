@@ -35,6 +35,11 @@ expect() {
 T() { printf 'RUN\t%s' "$1"; }     # build an expected RUN line
 M() { printf 'MANUAL\t%s' "$1"; }  # build an expected MANUAL line
 
+# AC2: Consented install via non-privileged channels only.
+#   RUN lines are non-privileged commands the bootstrap may run after explicit consent.
+#   MANUAL lines are advice-only — covers sudo/curl|sh/from-source and no-eligible-manager
+#   cases. A MANUAL line is NEVER auto-run by the bootstrap.
+
 # --- preference order: brew wins over cargo when both installed ---
 expect ripgrep "brew,cargo" linux "$(T 'brew install ripgrep')"
 
