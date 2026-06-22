@@ -52,3 +52,47 @@ The `.mdc` rule is applied by Cursor's runtime at session start. There is no hoo
 script output to assert in CI — the guarantee is structural: a `.mdc` file with
 `alwaysApply: true` in a correctly installed plugin is always injected. If the rule text
 changes, `scripts/check-docs.py` will catch it via the content-presence assertions.
+
+## sessionStart hook
+
+The `hooks/session-start-policy.sh` script emits the per-machine tool inventory (if
+bootstrapped) into Cursor's `additional_context` channel at every session start.
+
+The output envelope used by the hook is:
+
+```json
+{ "env": {}, "additional_context": "<context to add to conversation>" }
+```
+
+`[sourced — unverified]`: this envelope shape is cited in ADR-0007 from
+`cursor.com/docs/hooks` (2026-06-21). **A real Cursor runtime is required to confirm
+it.** The hook is not testable in CI without a live Cursor process.
+
+### MANUAL CHECK 3 — sessionStart hook injects inventory
+
+**Prerequisite:** run the bootstrap skill (`cursor-tool-optimizer` → `bootstrap`) so
+`.cursor/tool-optimizer.local.md` exists.
+
+1. Open a project in Cursor where the plugin is installed and the bootstrap has run.
+2. Open a new chat (Ctrl+L / Cmd+L).
+3. Ask the model: "What tools do you have available on this machine?" or "Summarize
+   the tool-optimizer inventory you received at session start."
+4. The model should list the tools from the bootstrapped inventory (e.g. `ripgrep`,
+   `ast-grep`) rather than guessing.
+
+### MANUAL CHECK 4 — graceful degradation without bootstrap
+
+1. Remove or rename `.cursor/tool-optimizer.local.md`.
+2. Open a new chat.
+3. Ask the model the same question.
+4. The model should still quote the static Policy (token-first guardrails) because
+   the hook falls back to it when the pre-rendered file is absent.
+
+### Why these hook checks are manual-only
+
+Cursor's `sessionStart` output envelope schema (`additional_context`) is
+`[sourced — unverified]` — it was cited from `cursor.com/docs/hooks` (2026-06-21) but
+could not be confirmed against a live Cursor runtime during development. The seam test
+(`tests/tool-optimizer/hooks/session-start-policy.seam.sh`) asserts the envelope shape
+programmatically; this manual check closes the remaining gap by running the hook in the
+actual Cursor process.
