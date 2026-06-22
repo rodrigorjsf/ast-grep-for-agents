@@ -424,6 +424,69 @@ The seam tests that prove this:
 - `tests/tool-optimizer/skills/report-error/scripts/file-or-pend.seam.sh` — proves
   byte-identity of the pending-write (AC4 privacy for the cursor state-dir case).
 
+## Opt-in MCP mount (`mcp: on` / `mcp: off`)
+
+The `ast-grep` MCP server is **opt-in** and **off by default**. When the user sets
+`mcp: on` in the bootstrap settings, the bootstrap writes a consented project
+`.cursor/mcp.json` declaring the server. When `mcp: off` (the default), nothing is
+written and the mount is absent.
+
+### Mount behavior (criteria 2 and 3)
+
+| Setting | Effect |
+|---|---|
+| `mcp: on` | Bootstrap writes `.cursor/mcp.json` adding the `ast-grep` server entry. Project `.cursor/mcp.json` wins over the user-global `~/.cursor/mcp.json`; Cursor asks approval before using MCP tools by default. |
+| `mcp: off` (default) | Mounts nothing. If a `.cursor/mcp.json` already exists, removes **only** the `ast-grep` entry and preserves any other servers. File is deleted only when nothing else remains. |
+
+This is the `mount_mcp.sh` engine retargeted via `TO_MCP_CONFIG=.cursor/mcp.json` —
+the knob introduced in slice #37. The full contract (on→write, off→remove-only-ours,
+preserve-others, delete-when-empty) is proven by the mount_mcp seam
+(`tests/tool-optimizer/skills/bootstrap/scripts/mount_mcp.seam.sh`), including
+case 13 which specifically exercises the `TO_MCP_CONFIG` retarget to `.cursor/mcp.json`.
+
+### MANUAL CHECK 9 — (c) premise spike: does a manifest-bundled MCP server in a Cursor plugin mount always-on when the plugin is enabled?
+
+**Prerequisite:** a live Cursor runtime with a test plugin installed.
+
+`[sourced — unverified]`: the blocking premise for the opt-in MCP mount design.
+
+**Hypothesis:** a manifest-bundled MCP server (declared in `.cursor-plugin/plugin.json`
+or a bundled `.cursor/mcp.json`) mounts **always-on** the moment the plugin is enabled
+in Cursor, with no per-setting toggle. If this is true, a bundled server cannot honor
+the `mcp: off` default — it would always be active. The entire opt-in design (writing
+a consented project `.cursor/mcp.json` via the bootstrap, rather than bundling the
+server in the plugin manifest) depends on this premise being true.
+
+This premise has not been confirmed against a live Cursor runtime. Until it is
+verified, do not bundle `ast-grep-mcp` in the plugin manifest.
+
+**Procedure:**
+
+1. Create a minimal test plugin with a dummy MCP server declared in its
+   `.cursor-plugin/plugin.json` (e.g. `"mcpServers": { "test-server": { ... } }`).
+2. Install the plugin in Cursor.
+3. Enable the plugin in Cursor Settings → Plugins.
+4. Open a project. Check whether `test-server` appears as an active MCP server
+   (Cursor Settings → MCP or via the agent's tool list) **without** any project
+   `.cursor/mcp.json` declaring it.
+
+**Outcomes:**
+
+- **True (hypothesis confirmed):** the bundled server mounts always-on. The design
+  holds — the opt-in lever must be the bootstrap-written consented project
+  `.cursor/mcp.json`, which is NOT plugin-bundled. No design change needed.
+- **False (hypothesis refuted):** bundled servers do not auto-mount always-on; Cursor
+  provides a per-setting or per-project toggle for them. **Revisit the design per
+  ADR-0005** before relying on the current mount implementation — the rationale for
+  the consented-write approach may no longer apply. File an issue referencing ADR-0005
+  to track the design revision.
+
+Do **NOT** fabricate a spike result — this check requires a live Cursor runtime and
+cannot be simulated in CI.
+
+`[sourced — unverified]`: premise cited in the issue rationale for slice #42 (ADR-0005
+context, 2026-06-22). The opt-in design is sound if the premise holds.
+
 ### TO_PLUGIN_JSON version field (documentation only)
 
 `sanitize.sh` resolves the plugin version from `${TO_PLUGIN_JSON:-.claude-plugin/plugin.json}`
