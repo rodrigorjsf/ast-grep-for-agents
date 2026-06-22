@@ -97,6 +97,68 @@ could not be confirmed against a live Cursor runtime during development. The sea
 programmatically; this manual check closes the remaining gap by running the hook in the
 actual Cursor process.
 
+## Bootstrap skill + command
+
+The `bootstrap` skill (`skills/bootstrap/SKILL.md`) sets up the local tool shelf: it
+runs a census of the tracked-file list, ranks all 10 core tools by relevance to this
+codebase, writes the inventory to `.cursor/`, and then drives a HITL present → consent
+→ install loop. The skill is shared between harnesses (verbatim from `tool-optimizer/`);
+only the command wrapper is Cursor-specific.
+
+### Triggering the bootstrap
+
+**Slash command** — type `/bootstrap` in any Cursor chat.
+`[sourced — unverified]`: the `/bootstrap` slash command is registered in
+`.cursor-plugin/plugin.json` via the `commands` array. The exact field names and
+invocation path derive from `cursor.com/docs/reference/plugins` and
+`schemas/plugin.schema.json` (2026-06-21) but have not been confirmed against a live
+Cursor runtime.
+
+**Natural language** — phrases like:
+- "check my tool shelf"
+- "bootstrap tools"
+- "set up tool-optimizer"
+- "what tools do I have installed?"
+
+The always-applied Policy Rule and the skill description together guide Cursor's agent to
+invoke the bootstrap skill in response to these phrases.
+
+### What the bootstrap writes under `.cursor/`
+
+| File | Contents |
+|---|---|
+| `.cursor/tool-optimizer.local.json` | Full inventory JSON (available/version/path/category + census + relevance) |
+| `.cursor/tool-optimizer.local.md` | Pre-rendered markdown policy block (read by the sessionStart hook at every session) |
+
+The command wrapper sets `TO_STATE_DIR=.cursor` so all outputs land under `.cursor/`
+instead of the shared-script default (`.claude/`).
+
+### Settings frontmatter stability (re-run safety)
+
+`render.sh` preserves any existing YAML frontmatter in `.cursor/tool-optimizer.local.md`
+on every re-run — only the body block is regenerated. User settings (`enabled`, `nudge`,
+`mcp`) live in the frontmatter and are **never churned**. Re-running the bootstrap is
+safe at any time.
+
+### Manual demo
+
+To verify the bootstrap end-to-end after installing the plugin:
+
+1. Open a project in Cursor.
+2. Type `/bootstrap` (or "check my tool shelf") in a new chat.
+3. Confirm `.cursor/tool-optimizer.local.json` appears with a `detectedAt` timestamp.
+4. Confirm `.cursor/tool-optimizer.local.md` contains the `## Local tool policy` section.
+5. Run the bootstrap a second time. Check that the frontmatter in `.cursor/tool-optimizer.local.md`
+   is unchanged (settings not churned).
+
+### MANUAL CHECK 7 — bootstrap command is registered
+
+1. Open Cursor Settings → Plugins → `cursor-tool-optimizer`.
+2. Confirm the `bootstrap` command appears in the plugin's command list.
+3. In a chat, type `/` — `bootstrap` should appear in the completion suggestions.
+
+`[sourced — unverified]`: slash command registration via `plugin.json` `commands` array.
+
 ## preToolUse Nudge hook
 
 The `hooks/nudge.sh` script fires before every Read tool call and redirects the agent
