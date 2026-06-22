@@ -10,6 +10,10 @@
     {
       "name": "bootstrap",
       "path": "skills/bootstrap/SKILL.md"
+    },
+    {
+      "name": "report-error",
+      "path": "skills/report-error/SKILL.md"
     }
   ],
   "commands": [
