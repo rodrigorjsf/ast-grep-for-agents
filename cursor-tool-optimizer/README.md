@@ -327,3 +327,118 @@ If the field names differ from the above, update `deny_with_msg` and `allow_sile
 in `hooks/nudge.sh` and re-run the seam tests.
 
 `[sourced — unverified]`: cursor.com/docs/hooks, 2026-06-21.
+
+## Self-report skill (report-error)
+
+The `report-error` skill (`skills/report-error/SKILL.md`) is BYTE-IDENTICAL to the
+Claude Code original (`tool-optimizer/skills/report-error/SKILL.md`). It is
+harness-generic: the skill itself contains no harness-specific code, so the verbatim
+copy carries the exact same behaviour, privacy contract, and hardcoded tracker to
+the Cursor harness.
+
+### Hardcoded upstream tracker
+
+Every defect report files to **`rodrigorjsf/ast-grep-for-agents`** — the fixed
+upstream, hardcoded in the skill. This never changes based on which repo the plugin
+is installed in; the plugin always reports to its own upstream.
+
+### Expected-vs-defect gate (file NOTHING for expected outcomes)
+
+The skill **only** fires when a Bootstrap script itself is defective:
+
+- a crash (segfault, interpreter/syntax error);
+- a non-zero exit **not documented** as a valid outcome;
+- clearly garbage output (malformed JSON, empty inventory when tools are installed).
+
+These are **expected outcomes — file nothing**:
+
+- a documented no-match / no-op exit (e.g. ast-grep exiting 1 on zero matches);
+- an expected empty census (repo has no tracked files);
+- a genuinely missing tool the bootstrap degrades around;
+- a declined consented install (user said no — that is the design).
+
+An expected outcome files nothing, produces no side effect, and does not touch the
+pending-reports file.
+
+### gh-absent fallback: pending-reports file
+
+When `gh` is missing or unauthenticated, the already-sanitized struct is appended
+(compact JSONL, one struct per line) to the local pending-reports file:
+
+```
+<repo-root>/.cursor/tool-optimizer.pending-reports.jsonl
+```
+
+(`TO_STATE_DIR=.cursor` shifts the default state dir to `.cursor/`, so the pending
+file lands under `.cursor/` in the Cursor port. The pending path is also overridable
+via `TO_FOP_PEND`.) Nothing errors, nothing prompts — `file-or-pend.sh` always exits
+0. The skill then stops; it does NOT proceed to spawn the filing subagent.
+
+The pending file is gitignored. A human or a future gh-available session files the
+reports manually. **No auto-flush is implemented.**
+
+### Breadcrumb → report-error pointer path (AC3)
+
+The session-start hook (`hooks/session-start-policy.sh`) picks up any crash breadcrumb
+left by a previous silent hook crash and folds a pointer to the `report-error` skill
+into its `additional_context` output. This path was delivered and proven in slice #38
+and is live in the current hook.
+
+The seam `tests/tool-optimizer/hooks/session-start-policy.seam.sh` — Cases C1 and C2
+— proves this for the **Cursor envelope** shape (`additional_context` at top level, no
+`hookSpecificOutput` key):
+
+- **Case C1**: absent `.cursor/tool-optimizer.local.md` → static Policy emitted in
+  `additional_context` (includes self-report clause and upstream tracker).
+- **Case C2**: pre-seeded breadcrumb file → pending-defect pointer folded into
+  `additional_context`, pointing at the `report-error` skill.
+
+No hook script is modified in this slice (criterion 5 is respected). The path is live
+via the existing session-start hook alone.
+
+### Transitive privacy guarantee (AC4)
+
+The privacy scrub is transitive and byte-identical:
+
+- `skills/report-error/scripts/sanitize.sh` — the sanitizer that builds the
+  allowlist-only struct.
+- `skills/report-error/scripts/file-or-pend.sh` — the fallback that writes the
+  ALREADY-SANITIZED struct to the pending file.
+- `skills/report-error/scripts/render-comment.sh` — renders a comment body from the
+  already-sanitized struct.
+
+All three Cursor copies under `cursor-tool-optimizer/skills/report-error/scripts/`
+are **BYTE-IDENTICAL** to the canonical `tool-optimizer/` originals. This is enforced
+by the drift gate (`scripts/check-cursor-drift.sh`, called by `scripts/check-docs.py`
+in CI) using `cmp -s` (exact byte comparison). A one-byte perturbation fails the gate.
+
+Because the copies are byte-identical:
+- The same denylist shapes are scrubbed;
+- The same allowlist fields are emitted;
+- The same sanitized pending-write path is followed;
+- The privacy guarantee carries verbatim to the Cursor port.
+
+The seam tests that prove this:
+- `tests/tool-optimizer/skills/report-error/scripts/sanitize.seam.sh` — proves
+  byte-identity of the sanitizer (AC4 privacy for the Cursor copy).
+- `tests/tool-optimizer/skills/report-error/scripts/file-or-pend.seam.sh` — proves
+  byte-identity of the pending-write (AC4 privacy for the cursor state-dir case).
+
+### TO_PLUGIN_JSON version field (documentation only)
+
+`sanitize.sh` resolves the plugin version from `${TO_PLUGIN_JSON:-.claude-plugin/plugin.json}`
+by default. In a Cursor install the manifest is `.cursor-plugin/plugin.json`, so a
+Cursor-aware invocation should set:
+
+```sh
+TO_PLUGIN_JSON=".cursor-plugin/plugin.json"
+```
+
+before calling `sanitize.sh`. This affects **only** the `pluginVersion` metadata field
+in the emitted struct — it does NOT change the privacy scrub (which is byte-identical
+regardless). The privacy guarantee holds whether or not `TO_PLUGIN_JSON` is set:
+denylist shapes are always scrubbed, allowlist fields are always what the struct says.
+
+If the verbatim `SKILL.md` already instructs setting `TO_PLUGIN_JSON` at Step 2,
+follow that instruction. The override is a documentation note, not a behavior change
+to any script.
