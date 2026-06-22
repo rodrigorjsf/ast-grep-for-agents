@@ -49,6 +49,13 @@ vflag() { jq -er ".relevance[] | select(.tool==\"$2\") | .$3 == true" "$1" >/dev
 vnflag(){ jq -er ".relevance[] | select(.tool==\"$2\") | .$3 == false" "$1" >/dev/null 2>&1 || fail "$4"; }
 
 # ===========================================================================
+# AC1: Relevance reported honestly with evidence sourced from the census.
+#   Scenarios A–E each assert that every tool gets a verdict, that the verdict
+#   matches the codebase shape (e.g. "0 tabular files → DuckDB NA"), and that
+#   `relevance[].evidence` is populated from the census, not improvised.
+# ===========================================================================
+
+# ===========================================================================
 # Scenario A: Java monorepo — ast-grep / repomix / ctags HIGH and recommended
 # ===========================================================================
 {
