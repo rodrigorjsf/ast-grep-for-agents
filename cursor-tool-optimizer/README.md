@@ -97,6 +97,95 @@ could not be confirmed against a live Cursor runtime during development. The sea
 programmatically; this manual check closes the remaining gap by running the hook in the
 actual Cursor process.
 
+## Bootstrap logic layer
+
+The bootstrap's decision-making is implemented by three harness-agnostic scripts
+(`skills/bootstrap/scripts/`). Each behaviour corresponds to an acceptance criterion
+and has a passing seam test — see `tests/tool-optimizer/skills/bootstrap/scripts/`.
+
+### Relevance reported with evidence (AC1)
+
+`rank.sh` runs `census.sh` internally to count file types in the tracked-file list, then
+assigns every tool a verdict (`HIGH`, `MED`, `LOW`, `NA`, `GEN-core`, `GEN-conditional`)
+**with evidence sourced from the census** — e.g. `"0 tabular files → DuckDB low relevance
+here"` or `"60 java → structural search pays off"`. The evidence is written into the
+`relevance[].evidence` field and is never improvised by the agent; it is always read back
+from the inventory JSON. No tool is omitted: every run produces exactly 10 `relevance[]`
+entries. See the rank scenarios in `rank.seam.sh` (scenarios A–E + idempotency properties).
+
+### Consented install via non-privileged channels only (AC2)
+
+`pick_channel.sh` chooses an install command for each tool given the available package
+managers (`brew`, `npm`, `pipx`, `uv`, `cargo`, `scoop`, `winget`) and the detected OS.
+It prints one TAB-separated line:
+
+- `RUN<TAB><command>` — a non-privileged command the bootstrap is allowed to run **after
+  explicit, per-tool user consent**.
+- `MANUAL<TAB><command>` — advice shown to the user as text only, **never auto-run**.
+  Covers `sudo apt`, `curl … | sh`, `pip`, from-source builds, and any case where no
+  eligible package manager is installed.
+
+`curl … | sh` and `sudo` paths are always `MANUAL`, never `RUN`. See
+`pick_channel.seam.sh` for the full channel matrix and OS-eligibility assertions.
+
+### Failed or impossible install degrades to advice; bootstrap continues (AC3)
+
+Step 5 of `skills/bootstrap/SKILL.md` specifies: if `pick_channel.sh` returns `MANUAL`,
+or if a `RUN` command exits non-zero, the agent prints the manual command as advice and
+**continues** to the next tool. A single locked-down or failing tool never aborts the
+run. This degrade-and-continue contract is described in the verbatim `SKILL.md` (shared
+from `tool-optimizer/`); the HITL loop is not auto-testable without a live environment
+(see manual check below).
+
+### Key-by-key scope resolution: `project[key] ?? global[key]` (AC4)
+
+`resolve.sh` implements a shallow two-scope merge:
+
+1. Read the project-scope config (default: `<TO_STATE_DIR>/tool-optimizer.local.json`).
+2. Read the global-scope config (default: `~/.claude/tool-optimizer.global.json`).
+3. Merge key-by-key: a project key **wins** over the same global key; a global key with
+   no project counterpart **falls through**; a project-only key is included. Missing
+   files are treated as `{}`.
+
+`TO_STATE_DIR=.cursor` shifts the project-scope default to `.cursor/` (Cursor port).
+`PROJECT_CONFIG` / `GLOBAL_CONFIG` override the defaults explicitly. See
+`resolve.seam.sh` cases 1–5 for all three resolution cases plus the state-dir contract.
+
+### Canonical flow
+
+The full present → consent → install → re-probe sequence is described in
+`skills/bootstrap/SKILL.md` (the canonical, verbatim skill shared across harnesses).
+The scripts above supply its deterministic sub-routines; the HITL loop wraps them.
+
+### MANUAL CHECK 8 — HITL present / consent / install / re-probe loop
+
+The consent-and-install loop cannot be exercised in CI because it requires a live agent
+session and real package manager calls. These checks must be run manually after a fresh
+install of the plugin.
+
+**Prerequisites:** plugin installed in Cursor; at least one tracked tool missing from
+`PATH` (confirm with the bootstrapped `.cursor/tool-optimizer.local.json`).
+
+1. Open a project in Cursor and type `/bootstrap` (or "check my tool shelf") in a new
+   chat.
+2. Confirm the agent lists **every** missing tool, split into two tiers (recommended and
+   "show, don't push"), each with its Relevance verdict and codebase evidence.
+   - E.g. a docs-only repo should show ast-grep as `NA` (not recommended), not hide it.
+   - A data-heavy repo should show DuckDB as `HIGH` and head the recommended list.
+3. For a recommended tool, the agent should ask for per-tool confirmation before running
+   any install command. Confirm that the exact `RUN` command from `pick_channel.sh` is
+   shown and that a `MANUAL` command is shown as text only (not executed).
+4. Approve one install. Confirm the agent runs the install, then re-probes with
+   `command -v <binary>` — **not** by re-running `detect.sh` mid-loop.
+5. Decline an install. Confirm the agent skips to the next tool without aborting.
+6. Simulate a failed install (or choose a tool with a `MANUAL`-only channel). Confirm
+   the agent prints the manual advice and continues to the next tool (does not abort).
+7. After the loop, confirm `.cursor/tool-optimizer.local.md` is written and contains the
+   `## Local tool policy` section.
+
+**Why this is manual-only:** steps 2–6 require a live agent driving the `AskUserQuestion`
+consent loop; there is no harness-injectable seam for the HITL flow itself.
+
 ## Bootstrap skill + command
 
 The `bootstrap` skill (`skills/bootstrap/SKILL.md`) sets up the local tool shelf: it

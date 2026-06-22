@@ -27,6 +27,12 @@ fail() {
   exit 1
 }
 
+# AC4: Settings resolve key-by-key across Project and Global scopes
+#   (project[key] ?? global[key]).
+#   Cases 1–5 cover: shared key (project wins), global-only key (falls through),
+#   project-only key (included), missing project file (no error), missing both ({}),
+#   stdout mode, and the TO_STATE_DIR umbrella contract for both .claude and .cursor.
+
 # ============================================================================
 # Fixtures — constructed to exercise all three resolution cases:
 #   (a) key in BOTH with DIFFERENT values → project value wins
