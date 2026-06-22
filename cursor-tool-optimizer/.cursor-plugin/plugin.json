@@ -1,0 +1,9 @@
+{
+  "name": "cursor-tool-optimizer",
+  "version": "0.1.0",
+  "description": "Token-first tool policy delivered as a native Cursor Rule (alwaysApply). The Policy guides the agent to pick the cheapest tool that fits the task shape; a non-standard tool must beat the standard one on tokens or capability.",
+  "author": {
+    "name": "Rodrigo França",
+    "email": "rodrigo_rjsf@hotmail.com"
+  }
+}

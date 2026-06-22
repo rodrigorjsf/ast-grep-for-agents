@@ -45,7 +45,9 @@ _Avoid_: Installer, method (say which: RUN channel vs MANUAL fallback).
 The token-first guidance the agent reads — "pick the tool by the shape of the
 task; a non-standard tool must beat the standard one on tokens or capability;
 never deny-list a standard tool." Canonical source: `docs/tools/00-overview.md`.
-_Avoid_: Rules (overloaded), config (the policy is one part of the config).
+_Avoid_: config (the policy is one part of the config). NB: the Policy is the
+*content*; in the Cursor port a **Rule** is the *delivery vehicle* for its static
+half — don't conflate them (see **Rule**).
 
 **Scope**:
 Where a config lives and which wins. *Global* (`~/.claude/...`) holds the
@@ -55,12 +57,17 @@ wins when present, otherwise the global value applies (`project[key] ?? global[k
 _Avoid_: Local vs remote, workspace.
 
 **Nudge**:
-A soft, one-line `PreToolUse` reminder fired only on narrow triggers (a `Read` of a
-large file, a tabular file, or a binary doc) that points the agent at the cheaper
-specialized tool. It never blocks the call and never repeats for the same path;
-it is tunable and disablable via the `nudge:` setting. A nudge guides; it is not a
-deny.
-_Avoid_: Block, gate, intercept, veto.
+A soft, one-line reminder fired only on narrow triggers (a `Read` of a large file, a
+tabular file, or a binary doc) that points the agent at the cheaper specialized tool.
+It never repeats for the same path and is tunable/disablable via the `nudge:` setting.
+**Harness-dependent blocking:** in **Claude Code** the Nudge is non-blocking by
+construction (`PreToolUse` allow + a message-to-agent) — it guides, it is not a deny.
+In **Cursor**, where `preToolUse` appears to reach the agent only on the deny path, the
+Nudge may degrade to a *one-time soft-deny redirect* (a gate on that first Read) to keep
+its actual value — preventing the wasteful read. So "never blocks" is a Claude property,
+not a cross-harness invariant (see ADR-0010).
+_Avoid_: Veto, hard-block (a Nudge is at most a one-time, redirecting soft-deny — never a
+standing block).
 
 **Census**:
 The cheap, deterministic snapshot of the project that Relevance is computed from:
@@ -119,3 +126,22 @@ never copied. A positive allowlist cannot leak a field it never copies — the o
 of scrubbing a raw transcript, which is only as good as the last redaction regex.
 _Avoid_: Redact, scrub, anonymize (those name a blocklist pass over raw data; construction
 means the raw data never enters the struct in the first place).
+
+## Multi-harness
+
+**Harness**:
+A host agent runtime the plugin targets — currently **Claude Code** and **Cursor**.
+The same capabilities are re-derived per harness using that harness's native
+primitives, not mirrored mechanism-for-mechanism. A plugin **artifact** is then
+either *harness-agnostic* (pure shell over stdin/data — single-sourced and synced
+into each plugin) or *harness-coupled* (forked per harness: the manifest, the
+hook config + hook scripts, and the Rule).
+_Avoid_: Platform, host, IDE, editor (say Harness; a harness is the agent runtime,
+not the editor chrome around it).
+
+**Rule** (Cursor):
+A Cursor-native standing-context artifact — a `.mdc` file with `alwaysApply: true` —
+that carries the *static* half of the **Policy** in the Cursor port. Claude Code has
+no Rule primitive, which is why there it delivers the same Policy by a `SessionStart`
+hook instead. A Rule is the vehicle; the Policy is the content it carries.
+_Avoid_: Policy (the content, not the vehicle), guideline, instruction.
